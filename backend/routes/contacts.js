@@ -24,6 +24,23 @@ const upload = multer({
   },
 });
 
+// Helper for fuzzy column header matching during CSV/Excel import
+function findValue(row, exactKeys, partialRegex) {
+  for (const k of exactKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+      return { val: row[k], matchedKey: k };
+    }
+  }
+  if (partialRegex) {
+    for (const key of Object.keys(row)) {
+      if (partialRegex.test(key) && row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+        return { val: row[key], matchedKey: key };
+      }
+    }
+  }
+  return { val: '', matchedKey: null };
+}
+
 // ── GET /api/contacts ─────────────────────────────────────────────────────────
 // Paginated list with optional search
 router.get('/', auth, async (req, res) => {
@@ -256,50 +273,116 @@ router.post(
 
       // 1. Normalize fields & clean Postgres NULL strings
       for (const row of contacts) {
-        // Extract names
-        const nameVal = row['name'] || row['full_name'] || row['fullname'] || row['cname'] || row['fname'] || row['first_name'] || row['contact_name'] || '';
-        row['name'] = (nameVal === '\\N') ? '' : String(nameVal).trim();
+        const matchedKeysToClean = [];
 
-        // Extract mobile
-        const mobileVal = row['mobile'] || row['phone'] || row['contact'] || row['mobile_number'] || row['number'] || row['mob'] || row['cell'] || row['contact_no'] || row['phone_number'] || '';
-        row['mobile'] = (mobileVal === '\\N') ? '' : String(mobileVal).trim();
+        // Extract Name
+        const nameMatch = findValue(row, 
+          ['name', 'full_name', 'fullname', 'legal_name', 'company_name', 'company', 'business_name', 'firm_name', 'firm', 'customer_name', 'client_name', 'owner_name', 'cname', 'fname', 'first_name', 'contact_name'],
+          /name|cname|fname/i
+        );
+        row['name'] = (nameMatch.val === '\\N') ? '' : String(nameMatch.val).trim();
+        if (nameMatch.matchedKey && nameMatch.matchedKey !== 'name') {
+          matchedKeysToClean.push(nameMatch.matchedKey);
+        }
+
+        // Extract Mobile
+        const mobileMatch = findValue(row,
+          ['mobile', 'mobile_number', 'mobile_no', 'mobileno', 'mobilenum', 'mob_num', 'mob_no', 'phone', 'phone_number', 'phone_no', 'phoneno', 'phonenum', 'number', 'contact', 'contact_no', 'contact_num', 'contactno', 'contactnum', 'mob', 'cell', 'whatsapp', 'whatsapp_no', 'mob_num', 'mob_num'],
+          /mob|phone|contact|number|num|tel/i
+        );
+        row['mobile'] = (mobileMatch.val === '\\N') ? '' : String(mobileMatch.val).trim();
+        if (mobileMatch.matchedKey && mobileMatch.matchedKey !== 'mobile') {
+          matchedKeysToClean.push(mobileMatch.matchedKey);
+        }
 
         if (row['mobile'] && row['mobile'].toUpperCase().includes('E')) {
           const num = Number(row['mobile']);
           if (!isNaN(num)) row['mobile'] = String(num);
         }
 
-        // Extract address
+        // Extract Address (merge address variants and split address columns)
         const addrParts = [];
-        const baseAddr = row['address'] || row['ladd'] || row['local_address'] || row['full_address'] || row['addr'] || '';
-        if (baseAddr && baseAddr !== '\\N' && String(baseAddr).trim() !== '') addrParts.push(String(baseAddr).trim());
-        if (row['add1'] && row['add1'] !== '\\N' && String(row['add1']).trim() !== '') addrParts.push(String(row['add1']).trim());
-        if (row['add2'] && row['add2'] !== '\\N' && String(row['add2']).trim() !== '') addrParts.push(String(row['add2']).trim());
-        if (row['add3'] && row['add3'] !== '\\N' && String(row['add3']).trim() !== '') addrParts.push(String(row['add3']).trim());
+        const addrMatch = findValue(row,
+          ['address', 'ladd', 'local_address', 'full_address', 'addr', 'location_address'],
+          /addr|address/i
+        );
+        if (addrMatch.val && addrMatch.val !== '\\N' && String(addrMatch.val).trim() !== '') {
+          addrParts.push(String(addrMatch.val).trim());
+        }
+        if (addrMatch.matchedKey && addrMatch.matchedKey !== 'address') {
+          matchedKeysToClean.push(addrMatch.matchedKey);
+        }
+
+        // Check for split address columns like add1, add2, add3
+        for (const key of Object.keys(row)) {
+          if (/^add[1-9]$/i.test(key)) {
+            if (row[key] && row[key] !== '\\N' && String(row[key]).trim() !== '') {
+              addrParts.push(String(row[key]).trim());
+            }
+            matchedKeysToClean.push(key);
+          }
+        }
         row['address'] = addrParts.join(', ').trim();
 
-        // Extract pincode
-        const pinVal = row['pincode'] || row['pin'] || row['zip'] || row['zipcode'] || row['postal_code'] || '';
-        row['pincode'] = (pinVal === '\\N') ? '' : String(pinVal).trim();
+        // Extract Pincode
+        const pinMatch = findValue(row,
+          ['pincode', 'pin', 'zip', 'zipcode', 'postal_code', 'postalcode', 'pin_code', 'pincode_no'],
+          /pin|zip/i
+        );
+        row['pincode'] = (pinMatch.val === '\\N') ? '' : String(pinMatch.val).trim();
+        if (pinMatch.matchedKey && pinMatch.matchedKey !== 'pincode') {
+          matchedKeysToClean.push(pinMatch.matchedKey);
+        }
 
-        // Extract city
-        const cityVal = row['city'] || row['city_name'] || row['district'] || '';
-        row['city'] = (cityVal === '\\N') ? '' : String(cityVal).trim();
+        // Extract City
+        const cityMatch = findValue(row,
+          ['city', 'city_name', 'district', 'dist', 'pob', 'town'],
+          /city|dist/i
+        );
+        row['city'] = (cityMatch.val === '\\N') ? '' : String(cityMatch.val).trim();
+        if (cityMatch.matchedKey && cityMatch.matchedKey !== 'city') {
+          matchedKeysToClean.push(cityMatch.matchedKey);
+        }
 
-        // Extract state
-        const stateVal = row['state'] || row['state_name'] || row['region'] || '';
-        row['state'] = (stateVal === '\\N') ? '' : String(stateVal).trim();
+        // Extract State
+        const stateMatch = findValue(row,
+          ['state', 'state_name', 'region'],
+          /state|region/i
+        );
+        row['state'] = (stateMatch.val === '\\N') ? '' : String(stateMatch.val).trim();
+        if (stateMatch.matchedKey && stateMatch.matchedKey !== 'state') {
+          matchedKeysToClean.push(stateMatch.matchedKey);
+        }
 
-        // Extract village
-        const villageVal = row['village'] || row['location'] || row['area'] || row['town'] || '';
-        row['village'] = (villageVal === '\\N') ? '' : String(villageVal).trim();
+        // Extract Village
+        const villageMatch = findValue(row,
+          ['village', 'location', 'area', 'town', 'village_name'],
+          /village|loc|area/i
+        );
+        row['village'] = (villageMatch.val === '\\N') ? '' : String(villageMatch.val).trim();
+        if (villageMatch.matchedKey && villageMatch.matchedKey !== 'village') {
+          matchedKeysToClean.push(villageMatch.matchedKey);
+        }
 
-        // Extract email
-        const emailVal = row['email'] || row['email_address'] || row['mail'] || '';
-        row['email'] = (emailVal === '\\N') ? '' : String(emailVal).trim();
+        // Extract Email
+        const emailMatch = findValue(row,
+          ['email', 'email_id', 'emailid', 'email_address', 'emailaddress', 'mail', 'mail_id', 'mailid'],
+          /email|mail/i
+        );
+        row['email'] = (emailMatch.val === '\\N') ? '' : String(emailMatch.val).trim();
+        if (emailMatch.matchedKey && emailMatch.matchedKey !== 'email') {
+          matchedKeysToClean.push(emailMatch.matchedKey);
+        }
 
-        // Extract gender and normalize it to 'male', 'female', or 'other'
-        let genVal = String(row['gender'] || '').trim().toLowerCase();
+        // Extract Gender
+        const genderMatch = findValue(row,
+          ['gender', 'sex'],
+          /gender|sex/i
+        );
+        if (genderMatch.matchedKey && genderMatch.matchedKey !== 'gender') {
+          matchedKeysToClean.push(genderMatch.matchedKey);
+        }
+        let genVal = String(genderMatch.val || '').trim().toLowerCase();
         if (genVal.startsWith('m')) {
           row['gender'] = 'male';
         } else if (genVal.startsWith('f') || genVal.startsWith('w')) {
@@ -307,21 +390,27 @@ router.post(
         } else if (genVal.startsWith('o')) {
           row['gender'] = 'other';
         } else {
-          row['gender'] = 'male'; // fallback to default
+          row['gender'] = 'male'; // default fallback
         }
 
-        // Delete all synonyms from the row object to prevent creating duplicate dynamic columns
+        // Also clean up any general known synonyms if they exist to keep dynamic schema clean
         const synonyms = [
-          'full_name', 'fullname', 'cname', 'fname', 'first_name', 'contact_name',
-          'phone', 'contact', 'mobile_number', 'number', 'mob', 'cell', 'contact_no', 'phone_number',
-          'ladd', 'local_address', 'full_address', 'addr', 'add1', 'add2', 'add3',
-          'pin', 'zip', 'zipcode', 'postal_code',
-          'city_name', 'district',
+          'full_name', 'fullname', 'cname', 'fname', 'first_name', 'contact_name', 'legal_name', 'company_name', 'business_name', 'firm_name', 'customer_name', 'client_name', 'owner_name',
+          'phone', 'contact', 'mobile_number', 'number', 'mob', 'cell', 'contact_no', 'phone_number', 'mob_num', 'mob_no', 'whatsapp', 'whatsapp_no',
+          'ladd', 'local_address', 'full_address', 'addr', 'location_address',
+          'pin', 'zip', 'zipcode', 'postal_code', 'postalcode', 'pin_code', 'pincode_no',
+          'city_name', 'district', 'dist', 'pob',
           'state_name', 'region',
-          'location', 'area', 'town',
-          'email_address', 'mail'
+          'location', 'area', 'town', 'village_name',
+          'email_address', 'mail', 'email_id', 'emailid', 'mail_id', 'mailid',
+          'sex'
         ];
         for (const key of synonyms) {
+          matchedKeysToClean.push(key);
+        }
+
+        // Delete synonym keys from row object
+        for (const key of matchedKeysToClean) {
           delete row[key];
         }
       }
