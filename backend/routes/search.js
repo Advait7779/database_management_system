@@ -75,9 +75,15 @@ router.get('/', auth, async (req, res) => {
       dataParams
     );
 
+    const colsResult = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
+    );
+    const columns = colsResult.rows.map(r => r.column_name);
+
     return res.json({
       success: true,
       data: result.rows,
+      columns,
       pagination: {
         total,
         page,
@@ -118,10 +124,16 @@ router.get('/pincode/:pin', auth, async (req, res) => {
 
     const total = parseInt(countResult.rows[0].count);
 
+    const colsResult = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
+    );
+    const columns = colsResult.rows.map(r => r.column_name);
+
     return res.json({
       success: true,
       data: {
         contacts: contactsResult.rows,
+        columns,
         summary: {
           pincode: pin,
           total_contacts: total,

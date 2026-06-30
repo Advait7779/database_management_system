@@ -46,6 +46,14 @@ export default function Search() {
   const [pinLoading, setPinLoading] = useState(false);
   const [dlLoading, setDlLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [columns, setColumns] = useState([]);
+  const customCols = columns.filter(col => {
+    const stdCols = new Set([
+      'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
+      'created_by', 'created_at', 'updated_at', 'created_by_name'
+    ]);
+    return !stdCols.has(col.toLowerCase());
+  });
   const debouncedQuery = useDebounce(query, 500);
   const { canDownload } = useAuth();
   const navigate = useNavigate();
@@ -67,6 +75,7 @@ export default function Search() {
       if (res.data.success) {
         setResults(res.data.data || []);
         setTotal(res.data.pagination?.total || 0);
+        setColumns(res.data.columns || []);
       }
     } catch { toast.error('Search failed'); }
     finally { setLoading(false); }
@@ -92,6 +101,7 @@ export default function Search() {
       const res = await axios.get(`/search/pincode/${pinInput.trim()}`);
       if (res.data.success) {
         setResults(res.data.data.contacts || []);
+        setColumns(res.data.data.columns || []);
         setPinSummary(res.data.data.summary || null);
         setTotal(res.data.data.contacts?.length || 0);
       }
@@ -237,20 +247,38 @@ export default function Search() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th><th>Gender</th><th>Mobile</th><th>City</th><th>State</th><th>Village</th><th>PIN Code</th><th>Actions</th>
+                  <th>Name</th>
+                  <th>Gender</th>
+                  <th>Mobile</th>
+                  <th>City</th>
+                  <th>State</th>
+                  <th>Village</th>
+                  <th>PIN Code</th>
+                  {customCols.map(col => (
+                    <th key={col} className="capitalize">{col.replace(/_/g, ' ')}</th>
+                  ))}
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? Array(5).fill(0).map((_, i) => (
-                  <tr key={i}>{Array(8).fill(0).map((_, j) => <td key={j}><div className="skeleton h-4 rounded" /></td>)}</tr>
+                  <tr key={i}>
+                    {Array(8 + customCols.length).fill(0).map((_, j) => (
+                      <td key={j}><div className="skeleton h-4 rounded w-full" /></td>
+                    ))}
+                  </tr>
                 )) : results.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center py-12 text-muted">No results found</td></tr>
+                  <tr>
+                    <td colSpan={8 + customCols.length} className="text-center py-12 text-muted">
+                      No results found
+                    </td>
+                  </tr>
                 ) : results.map((c, i) => (
                   <motion.tr key={c.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.015, duration: 0.15, ease: 'easeOut' }}>
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>{c.name[0]}</div>
+                          style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>{c.name[0].toUpperCase()}</div>
                         <span className="font-medium text-primary text-sm">{c.name}</span>
                       </div>
                     </td>
@@ -264,6 +292,15 @@ export default function Search() {
                     <td>{c.state || '—'}</td>
                     <td>{c.village || '—'}</td>
                     <td>{c.pincode ? <span className="badge badge-cyan">{c.pincode}</span> : '—'}</td>
+                    {customCols.map(col => (
+                      <td key={col} className="text-sm">
+                        {c[col] !== undefined && c[col] !== null ? (
+                          String(c[col])
+                        ) : (
+                          <span className="text-muted text-xs">—</span>
+                        )}
+                      </td>
+                    ))}
                     <td>
                       <button onClick={() => navigate(`/contacts/${c.id}/edit`)}
                         className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-400/10 transition-colors">
