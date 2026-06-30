@@ -254,34 +254,64 @@ router.post(
         return res.status(400).json({ success: false, message: 'File is empty or has no valid rows' });
       }
 
-      // 1. Normalize name, mobile fields & clean Postgres NULL strings
+      // 1. Normalize fields & clean Postgres NULL strings
       for (const row of contacts) {
-        if (!row['name']) {
-          row['name'] = row['full_name'] || row['cname'] || row['fname'] || row['first_name'] || '';
-        }
-        if (row['name'] === '\\N') row['name'] = '';
-        row['name'] = String(row['name']).trim();
+        // Extract names
+        const nameVal = row['name'] || row['full_name'] || row['fullname'] || row['cname'] || row['fname'] || row['first_name'] || row['contact_name'] || '';
+        row['name'] = (nameVal === '\\N') ? '' : String(nameVal).trim();
 
-        if (!row['mobile']) {
-          row['mobile'] = row['phone'] || row['contact'] || row['mobile_number'] || '';
-        }
-        if (row['mobile'] === '\\N') row['mobile'] = '';
-        row['mobile'] = String(row['mobile']).trim();
+        // Extract mobile
+        const mobileVal = row['mobile'] || row['phone'] || row['contact'] || row['mobile_number'] || row['number'] || row['mob'] || row['cell'] || row['contact_no'] || row['phone_number'] || '';
+        row['mobile'] = (mobileVal === '\\N') ? '' : String(mobileVal).trim();
 
-        // Convert scientific formats like 7.74E+09 back to digits
         if (row['mobile'] && row['mobile'].toUpperCase().includes('E')) {
           const num = Number(row['mobile']);
-          if (!isNaN(num)) {
-            row['mobile'] = String(num);
-          }
+          if (!isNaN(num)) row['mobile'] = String(num);
         }
 
-        // Map and normalize address from variant fields (e.g. ladd, local_address)
-        if (!row['address']) {
-          row['address'] = row['ladd'] || row['local_address'] || row['full_address'] || row['addr'] || '';
+        // Extract address
+        const addrParts = [];
+        const baseAddr = row['address'] || row['ladd'] || row['local_address'] || row['full_address'] || row['addr'] || '';
+        if (baseAddr && baseAddr !== '\\N' && String(baseAddr).trim() !== '') addrParts.push(String(baseAddr).trim());
+        if (row['add1'] && row['add1'] !== '\\N' && String(row['add1']).trim() !== '') addrParts.push(String(row['add1']).trim());
+        if (row['add2'] && row['add2'] !== '\\N' && String(row['add2']).trim() !== '') addrParts.push(String(row['add2']).trim());
+        if (row['add3'] && row['add3'] !== '\\N' && String(row['add3']).trim() !== '') addrParts.push(String(row['add3']).trim());
+        row['address'] = addrParts.join(', ').trim();
+
+        // Extract pincode
+        const pinVal = row['pincode'] || row['pin'] || row['zip'] || row['zipcode'] || row['postal_code'] || '';
+        row['pincode'] = (pinVal === '\\N') ? '' : String(pinVal).trim();
+
+        // Extract city
+        const cityVal = row['city'] || row['city_name'] || row['district'] || '';
+        row['city'] = (cityVal === '\\N') ? '' : String(cityVal).trim();
+
+        // Extract state
+        const stateVal = row['state'] || row['state_name'] || row['region'] || '';
+        row['state'] = (stateVal === '\\N') ? '' : String(stateVal).trim();
+
+        // Extract village
+        const villageVal = row['village'] || row['location'] || row['area'] || row['town'] || '';
+        row['village'] = (villageVal === '\\N') ? '' : String(villageVal).trim();
+
+        // Extract email
+        const emailVal = row['email'] || row['email_address'] || row['mail'] || '';
+        row['email'] = (emailVal === '\\N') ? '' : String(emailVal).trim();
+
+        // Delete all synonyms from the row object to prevent creating duplicate dynamic columns
+        const synonyms = [
+          'full_name', 'fullname', 'cname', 'fname', 'first_name', 'contact_name',
+          'phone', 'contact', 'mobile_number', 'number', 'mob', 'cell', 'contact_no', 'phone_number',
+          'ladd', 'local_address', 'full_address', 'addr', 'add1', 'add2', 'add3',
+          'pin', 'zip', 'zipcode', 'postal_code',
+          'city_name', 'district',
+          'state_name', 'region',
+          'location', 'area', 'town',
+          'email_address', 'mail'
+        ];
+        for (const key of synonyms) {
+          delete row[key];
         }
-        if (row['address'] === '\\N') row['address'] = '';
-        row['address'] = String(row['address']).trim();
       }
 
       // 2. Query existing columns in the database contacts table
