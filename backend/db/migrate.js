@@ -148,6 +148,19 @@ async function migrate() {
 
     // ── Indexes ────────────────────────────────────────────────────────────────
 
+    // Delete duplicate contacts based on mobile, keeping the one with the lowest id (first created)
+    console.log('Clearing duplicate contact numbers...');
+    const delRes = await client.query(`
+      DELETE FROM contacts a
+      USING contacts b
+      WHERE a.id > b.id AND a.mobile = b.mobile;
+    `);
+    console.log(`✓ cleared duplicates (removed ${delRes.rowCount || 0} rows)`);
+
+    // Create unique index on mobile to enforce uniqueness in PostgreSQL
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_mobile_unique ON contacts(mobile);`);
+    console.log('✓ unique mobile index ready');
+
     // Enable pg_trgm extension for trigram search (used to index ILIKE queries)
     await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
 

@@ -366,7 +366,7 @@ router.post(
           const query = `
             INSERT INTO contacts (${colNames.join(', ')})
             VALUES ${valueRows.join(', ')}
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (mobile) DO NOTHING
           `;
           await pool.query(query, params);
         }
