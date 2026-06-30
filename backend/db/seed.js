@@ -76,9 +76,9 @@ async function seed() {
     // 4. Insert dummy contacts
     for (const c of dummyContacts) {
       await pool.query(
-        `INSERT INTO contacts (name, mobile, alternate_mobile, email, gender, address, city, state, village, pincode, notes, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [c.name, c.mobile, c.alt, c.email, c.gender, c.address, c.city, c.state, c.village, c.pin, c.notes, userId]
+        `INSERT INTO contacts (name, mobile, email, gender, address, city, state, village, pincode, notes, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [c.name, c.mobile, c.email, c.gender, c.address, c.city, c.state, c.village, c.pin, c.notes, userId]
       );
     }
     console.log(`✓ Inserted ${dummyContacts.length} dummy contacts successfully`);

@@ -9,7 +9,6 @@ import CustomSelect from '../components/CustomSelect';
 const fields = [
   { name: 'name', label: 'Full Name', type: 'text', required: true, col: 2 },
   { name: 'mobile', label: 'Mobile Number', type: 'tel', required: true },
-  { name: 'alternate_mobile', label: 'Alternate Mobile', type: 'tel' },
   { name: 'email', label: 'Email Address', type: 'email' },
   { name: 'gender', label: 'Gender', type: 'select', required: true, options: [
     { value: 'male', label: 'Male' },
@@ -29,7 +28,7 @@ export default function AddEditContact() {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    name: '', mobile: '', alternate_mobile: '', email: '', gender: 'male',
+    name: '', mobile: '', email: '', gender: 'male',
     address: '', city: '', state: '', village: '', pincode: '', notes: ''
   });
   const [loading, setLoading] = useState(false);
@@ -43,7 +42,7 @@ export default function AddEditContact() {
         if (res.data.success) {
           const c = res.data.data;
           setForm({
-            name: c.name || '', mobile: c.mobile || '', alternate_mobile: c.alternate_mobile || '',
+            name: c.name || '', mobile: c.mobile || '',
             email: c.email || '', gender: c.gender || 'male', address: c.address || '',
             city: c.city || '', state: c.state || '', village: c.village || '',
             pincode: c.pincode || '', notes: c.notes || ''

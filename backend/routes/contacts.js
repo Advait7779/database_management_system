@@ -114,7 +114,7 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, roleGuard(['super_admin', 'admin', 'staff']), async (req, res) => {
   try {
     const {
-      name, mobile, alternate_mobile, address, city, state,
+      name, mobile, address, city, state,
       village, pincode, email, gender, notes,
     } = req.body;
 
@@ -124,10 +124,10 @@ router.post('/', auth, roleGuard(['super_admin', 'admin', 'staff']), async (req,
 
     const result = await pool.query(
       `INSERT INTO contacts
-         (name, mobile, alternate_mobile, address, city, state, village, pincode, email, gender, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         (name, mobile, address, city, state, village, pincode, email, gender, notes, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
-      [name, mobile, alternate_mobile, address, city, state, village, pincode, email, gender || 'male', notes, req.user.id]
+      [name, mobile, address, city, state, village, pincode, email, gender || 'male', notes, req.user.id]
     );
 
     await logActivity(req, 'CREATE_CONTACT', `Created contact "${name}" (${mobile})`);
@@ -143,7 +143,7 @@ router.post('/', auth, roleGuard(['super_admin', 'admin', 'staff']), async (req,
 router.put('/:id', auth, roleGuard(['super_admin', 'admin', 'staff']), async (req, res) => {
   try {
     const {
-      name, mobile, alternate_mobile, address, city, state,
+      name, mobile, address, city, state,
       village, pincode, email, gender, notes,
     } = req.body;
 
@@ -154,12 +154,12 @@ router.put('/:id', auth, roleGuard(['super_admin', 'admin', 'staff']), async (re
 
     const result = await pool.query(
       `UPDATE contacts SET
-         name=$1, mobile=$2, alternate_mobile=$3, address=$4, city=$5,
-         state=$6, village=$7, pincode=$8, email=$9, gender=$10,
-         notes=$11, updated_at=NOW()
-       WHERE id=$12
+         name=$1, mobile=$2, address=$3, city=$4,
+         state=$5, village=$6, pincode=$7, email=$8, gender=$9,
+         notes=$10, updated_at=NOW()
+       WHERE id=$11
        RETURNING *`,
-      [name, mobile, alternate_mobile, address, city, state, village, pincode, email, gender || 'male', notes, req.params.id]
+      [name, mobile, address, city, state, village, pincode, email, gender || 'male', notes, req.params.id]
     );
 
     await logActivity(req, 'UPDATE_CONTACT', `Updated contact id=${req.params.id} "${name}"`);
@@ -260,20 +260,18 @@ router.post(
 
         await pool.query(
           `INSERT INTO contacts
-             (name, mobile, alternate_mobile, address, city, state, village, pincode, email, company, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+             (name, mobile, address, city, state, village, pincode, email, notes, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            ON CONFLICT DO NOTHING`,
           [
             name,
             String(mobile),
-            row['alternate_mobile'] || row['alt_mobile'] || null,
             row['address'] || null,
             row['city']    || null,
             row['state']   || null,
             row['village'] || null,
             row['pincode'] || row['zip'] || null,
             row['email']   || null,
-            row['company'] || null,
             row['notes']   || null,
             req.user.id,
           ]

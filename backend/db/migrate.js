@@ -62,7 +62,6 @@ async function migrate() {
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         mobile VARCHAR(20) NOT NULL,
-        alternate_mobile VARCHAR(20),
         address TEXT,
         city VARCHAR(100),
         state VARCHAR(100),
@@ -77,6 +76,11 @@ async function migrate() {
       );
     `);
     console.log('✓ contacts table ready');
+
+    await client.query(`
+      ALTER TABLE contacts DROP COLUMN IF EXISTS alternate_mobile;
+    `);
+    console.log('✓ contacts alternate_mobile column dropped (if existed)');
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS sms_logs (

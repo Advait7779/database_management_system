@@ -79,8 +79,7 @@ router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
   try {
     const { where, params } = buildFilterWhere(req.query);
     const result = await pool.query(
-      `SELECT id, name, mobile, alternate_mobile, address, city, state, village,
-              pincode, email, notes, created_at
+      `SELECT id, name, mobile, address, city, state, village, pincode, email
        FROM contacts ${where}
        ORDER BY name`,
       params
@@ -172,8 +171,7 @@ router.get('/csv', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
   try {
     const { where, params } = buildFilterWhere(req.query);
     const result = await pool.query(
-      `SELECT id, name, mobile, alternate_mobile, address, city, state, village,
-              pincode, email, notes, created_at
+      `SELECT id, name, mobile, address, city, state, village, pincode, email
        FROM contacts ${where}
        ORDER BY name`,
       params
