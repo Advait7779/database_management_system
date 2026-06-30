@@ -207,7 +207,7 @@ export default function Search() {
                 <span className="text-lg font-semibold text-secondary">PIN Code</span>
                 <span className="text-2xl font-bold font-mono gradient-text">{pinSummary.pincode}</span>
               </div>
-              <div className="text-7xl font-black font-display gradient-text mb-2">
+              <div className="text-5xl font-black font-display gradient-text mb-2">
                 {(pinSummary.total_contacts || 0).toLocaleString()}
               </div>
               <p className="text-muted text-base mb-3">Total Contacts</p>
