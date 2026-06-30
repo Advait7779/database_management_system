@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import ConfirmModal from './ConfirmModal';
 import {
   DashboardIcon, ContactsIcon, SearchIcon, DownloadIcon,
   CommsIcon, UsersIcon, ReportsIcon, LogsIcon, DatabaseIcon,
@@ -32,6 +33,7 @@ const roleBadgeMap = {
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
 
@@ -183,7 +185,7 @@ export default function Layout({ children }) {
                 <MenuIcon size={22} />
               </button>
               <span className="hidden md:block text-lg md:text-xl font-bold text-primary tracking-tight">
-                Welcome Back Admin
+                {user?.role === 'staff' ? 'Welcome User' : 'Welcome Back Admin'}
               </span>
             </div>
 
@@ -321,7 +323,7 @@ export default function Layout({ children }) {
                           <div className="border-t border-subtle my-1" />
                           
                           <button 
-                            onClick={() => { setShowUserDropdown(false); handleLogout(); }}
+                            onClick={() => { setShowUserDropdown(false); setShowLogoutConfirm(true); }}
                             className="w-full text-left px-2 py-2 rounded-lg text-xs font-semibold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all flex items-center gap-2.5"
                           >
                             <LogoutIcon size={16} /> Sign Out
@@ -347,6 +349,13 @@ export default function Layout({ children }) {
           </motion.div>
         </main>
       </div>
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Sign Out"
+        message="Are you sure you want to sign out of the system?"
+      />
     </div>
   );
 }
