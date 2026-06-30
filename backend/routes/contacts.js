@@ -12,7 +12,7 @@ const { logActivity } = require('../middleware/logger');
 // ── Multer setup for CSV/Excel uploads ───────────────────────────────────────
 const upload = multer({
   dest: path.join(__dirname, '../uploads/'),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
   fileFilter: (req, file, cb) => {
     const allowed = ['.csv', '.xlsx', '.xls'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -248,22 +248,25 @@ router.post(
         return res.status(400).json({ success: false, message: 'File is empty or has no valid rows' });
       }
 
-      // Bulk insert
+      // Bulk insert in chunks of 500
       let inserted = 0;
       let skipped = 0;
+      const chunkSize = 500;
 
-      for (const row of contacts) {
-        const name   = row['name']   || row['full_name'] || '';
-        const mobile = row['mobile'] || row['phone']     || row['contact'] || '';
+      for (let i = 0; i < contacts.length; i += chunkSize) {
+        const chunk = contacts.slice(i, i + chunkSize);
+        const valueRows = [];
+        const params = [];
+        let paramIdx = 1;
 
-        if (!name || !mobile) { skipped++; continue; }
+        for (const row of chunk) {
+          const name   = row['name']   || row['full_name'] || '';
+          const mobile = row['mobile'] || row['phone']     || row['contact'] || '';
 
-        await pool.query(
-          `INSERT INTO contacts
-             (name, mobile, address, city, state, village, pincode, email, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           ON CONFLICT DO NOTHING`,
-          [
+          if (!name || !mobile) { skipped++; continue; }
+
+          valueRows.push(`($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++})`);
+          params.push(
             name,
             String(mobile),
             row['address'] || null,
@@ -273,10 +276,20 @@ router.post(
             row['pincode'] || row['zip'] || null,
             row['email']   || null,
             row['notes']   || null,
-            req.user.id,
-          ]
-        );
-        inserted++;
+            req.user.id
+          );
+          inserted++;
+        }
+
+        if (valueRows.length > 0) {
+          const query = `
+            INSERT INTO contacts
+              (name, mobile, address, city, state, village, pincode, email, notes, created_by)
+            VALUES ${valueRows.join(', ')}
+            ON CONFLICT DO NOTHING
+          `;
+          await pool.query(query, params);
+        }
       }
 
       fs.unlinkSync(filePath);
