@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { DownloadIcon, ExcelIcon, ShieldIcon, FilterIcon } from '../components/Icons';
 import { useNavigate } from 'react-router-dom';
 import CustomSelect from '../components/CustomSelect';
+import Pagination from '../components/Pagination';
 
 const genderOptions = [
   { value: '', label: 'All Genders' },
@@ -23,17 +24,22 @@ export default function Downloads() {
   const [dlLoading, setDlLoading] = useState('');
   const [previewCount, setPreviewCount] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (!canDownload()) { navigate('/dashboard'); return; }
-    fetchLogs();
+    fetchLogs(1);
   }, []);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (p = 1) => {
     setLoading(true);
     try {
-      const res = await axios.get('/download/logs');
-      if (res.data.success) setLogs(res.data.data || []);
+      const res = await axios.get('/download/logs', { params: { page: p, limit: 5 } });
+      if (res.data.success) {
+        setLogs(res.data.data || []);
+        setTotalPages(res.data.pagination?.totalPages || 1);
+      }
     } catch { } finally { setLoading(false); }
   };
 
@@ -63,7 +69,8 @@ export default function Downloads() {
       a.click();
       window.URL.revokeObjectURL(url);
       toast.success(`${type.toUpperCase()} downloaded!`);
-      fetchLogs();
+      setPage(1);
+      fetchLogs(1);
     } catch { toast.error('Download failed'); }
     finally { setDlLoading(''); }
   };
@@ -175,6 +182,18 @@ export default function Downloads() {
             </tbody>
           </table>
         </div>
+        {!loading && logs.length > 0 && totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-subtle flex justify-end">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={(p) => {
+                setPage(p);
+                fetchLogs(p);
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
