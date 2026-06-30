@@ -102,8 +102,21 @@ export default function Search() {
   const handleDownload = async (pin) => {
     setDlLoading(true);
     try {
+      const params = {};
+      if (pin) {
+        params.pincode = pin;
+      } else {
+        if (activeTab === 'All') params.q = query;
+        else if (activeTab === 'Name') params.name = query;
+        else if (activeTab === 'Mobile') params.mobile = query;
+        else if (activeTab === 'City') params.city = query;
+        else if (activeTab === 'State') params.state = query;
+        
+        if (gender) params.gender = gender;
+      }
+
       const res = await axios.get('/download/excel', {
-        params: pin ? { pincode: pin } : {},
+        params,
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));

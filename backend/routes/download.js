@@ -9,39 +9,54 @@ const { logActivity } = require('../middleware/logger');
 const DOWNLOAD_ROLES = ['super_admin', 'admin', 'download_user'];
 
 // ── Helper: build filter WHERE clause ────────────────────────────────────────
-function buildFilterWhere(query) {
+function buildFilterWhere(filters) {
   const conditions = [];
   const params = [];
   let idx = 1;
 
-  if (query.pincode) {
-    conditions.push(`pincode = $${idx++}`);
-    params.push(query.pincode);
-  }
-  if (query.city) {
-    conditions.push(`city ILIKE $${idx++}`);
-    params.push(`%${query.city}%`);
-  }
-  if (query.state) {
-    conditions.push(`state ILIKE $${idx++}`);
-    params.push(`%${query.state}%`);
-  }
-  if (query.name) {
-    conditions.push(`name ILIKE $${idx++}`);
-    params.push(`%${query.name}%`);
-  }
-  if (query.mobile) {
-    conditions.push(`mobile ILIKE $${idx++}`);
-    params.push(`%${query.mobile}%`);
-  }
-  if (query.gender && ['male', 'female', 'other'].includes(query.gender)) {
+  if (filters.gender && ['male', 'female', 'other'].includes(filters.gender)) {
     conditions.push(`gender = $${idx++}`);
-    params.push(query.gender);
+    params.push(filters.gender);
+  }
+
+  if (filters.q) {
+    conditions.push(`(name ILIKE $${idx} OR mobile ILIKE $${idx} OR city ILIKE $${idx} OR state ILIKE $${idx} OR village ILIKE $${idx} OR pincode ILIKE $${idx} OR address ILIKE $${idx})`);
+    params.push(`%${filters.q}%`);
+    idx++;
+  } else {
+    const add = (col, val, partial = true) => {
+      if (val) {
+        if (partial) {
+          conditions.push(`${col} ILIKE $${idx++}`);
+          params.push(`%${val}%`);
+        } else {
+          conditions.push(`${col} = $${idx++}`);
+          params.push(val);
+        }
+      }
+    };
+
+    add('name',    filters.name);
+    add('mobile',  filters.mobile);
+    add('address', filters.address);
+    add('city',    filters.city);
+    add('state',   filters.state);
+    add('village', filters.village);
+    add('pincode', filters.pincode, false); // exact match
+    add('email',   filters.email);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   return { where, params };
 }
+
+// ── Helper: mask mobile numbers to xxxxx ──────────────────────────────────────
+const maskMobile = (mobile) => {
+  if (!mobile) return '';
+  const str = String(mobile).trim();
+  if (str.length <= 5) return str;
+  return str.slice(0, -5) + 'xxxxx';
+};
 
 // ── Helper: log download ──────────────────────────────────────────────────────
 async function logDownload(req, fileType, filters, recordCount) {
@@ -117,8 +132,8 @@ router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
       const row = sheet.addRow({
         id:               c.id,
         name:             c.name,
-        mobile:           c.mobile,
-        alternate_mobile: c.alternate_mobile || '',
+        mobile:           maskMobile(c.mobile),
+        alternate_mobile: maskMobile(c.alternate_mobile),
         address:          c.address         || '',
         city:             c.city            || '',
         state:            c.state           || '',
@@ -190,8 +205,8 @@ router.get('/csv', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
     const rows = contacts.map((c) => [
       c.id,
       c.name,
-      c.mobile,
-      c.alternate_mobile || '',
+      maskMobile(c.mobile),
+      maskMobile(c.alternate_mobile) || '',
       c.address          || '',
       c.city             || '',
       c.state            || '',
