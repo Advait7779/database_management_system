@@ -150,28 +150,28 @@ export default function Contacts() {
 
       {/* Filters */}
       <div className="glass-card p-4 mb-5 relative z-30">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="search-bar w-full">
+        <div className="grid grid-cols-2 gap-3 md:flex md:flex-row md:items-center md:justify-between">
+          <div className="search-bar w-full md:max-w-xs">
             <SearchIcon size={18} className="text-muted flex-shrink-0" />
             <input placeholder="Search by name or mobile..." value={search} onChange={handleSearch} />
           </div>
-          <input value={cityFilter} onChange={e => { setCityFilter(e.target.value); setPage(1); }}
-            placeholder="Filter by city" className="input-field w-full" />
-          <input value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1); }}
-            placeholder="Filter by state" className="input-field w-full" />
-          <CustomSelect
-            value={genderFilter}
-            onChange={val => { setGenderFilter(val); setPage(1); }}
-            options={genderOptions}
-            className="w-full"
-          />
-        </div>
-        {(search || cityFilter || stateFilter || genderFilter) && (
-          <div className="flex justify-end mt-3">
-            <button onClick={() => { setSearch(''); setCityFilter(''); setStateFilter(''); setGenderFilter(''); setPage(1); }}
-              className="btn-secondary text-xs px-3 py-1.5 justify-center">Clear Filters</button>
+          <div className="contents md:flex md:flex-row md:items-center md:gap-3 md:ml-auto">
+            <input value={cityFilter} onChange={e => { setCityFilter(e.target.value); setPage(1); }}
+              placeholder="Filter by city" className="input-field w-full md:w-40" />
+            <input value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1); }}
+              placeholder="Filter by state" className="input-field w-full md:w-40" />
+            <CustomSelect
+              value={genderFilter}
+              onChange={val => { setGenderFilter(val); setPage(1); }}
+              options={genderOptions}
+              className="w-full md:w-36"
+            />
+            {(search || cityFilter || stateFilter || genderFilter) && (
+              <button onClick={() => { setSearch(''); setCityFilter(''); setStateFilter(''); setGenderFilter(''); setPage(1); }}
+                className="btn-secondary text-xs w-full md:w-auto justify-center col-span-2 md:col-span-1">Clear</button>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Table */}
