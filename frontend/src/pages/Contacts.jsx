@@ -70,7 +70,7 @@ export default function Contacts() {
 
   const customCols = columns.filter(col => {
     const stdCols = new Set([
-      'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
+      'id', 'name', 'gender', 'mobile', 'city', 'state', 'village', 'pincode', 'email', 'notes',
       'created_by', 'created_at', 'updated_at', 'created_by_name'
     ]);
     return !stdCols.has(col.toLowerCase());

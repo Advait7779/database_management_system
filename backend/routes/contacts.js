@@ -275,6 +275,13 @@ router.post(
             row['mobile'] = String(num);
           }
         }
+
+        // Map and normalize address from variant fields (e.g. ladd, local_address)
+        if (!row['address']) {
+          row['address'] = row['ladd'] || row['local_address'] || row['full_address'] || row['addr'] || '';
+        }
+        if (row['address'] === '\\N') row['address'] = '';
+        row['address'] = String(row['address']).trim();
       }
 
       // 2. Query existing columns in the database contacts table

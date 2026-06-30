@@ -82,6 +82,23 @@ async function migrate() {
     `);
     console.log('✓ contacts alternate_mobile column dropped (if existed)');
 
+    // ── Merge ladd column into address and drop it (if exists) ──────────────────
+    const laddColCheck = await client.query(`
+      SELECT 1 
+      FROM information_schema.columns 
+      WHERE table_name='contacts' AND column_name='ladd'
+    `);
+    if (laddColCheck.rows.length > 0) {
+      console.log('Merging dynamic "ladd" column data into standard "address"...');
+      await client.query(`
+        UPDATE contacts 
+        SET address = COALESCE(NULLIF(TRIM(address), ''), NULLIF(TRIM(ladd), ''))
+        WHERE ladd IS NOT NULL AND ladd <> '';
+      `);
+      await client.query(`ALTER TABLE contacts DROP COLUMN ladd;`);
+      console.log('✓ "ladd" column data merged and column dropped successfully');
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS sms_logs (
         id SERIAL PRIMARY KEY,
