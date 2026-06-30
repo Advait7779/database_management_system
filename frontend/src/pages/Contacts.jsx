@@ -75,6 +75,31 @@ export default function Contacts() {
     }
   };
 
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const toastId = toast.loading('Importing contacts...');
+    try {
+      const res = await axios.post('/contacts/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        toast.success(res.data.message || 'Contacts imported successfully!', { id: toastId });
+        fetchContacts();
+      } else {
+        toast.error(res.data.message || 'Import failed', { id: toastId });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to import file', { id: toastId });
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   const handleSearch = (e) => { setSearch(e.target.value); setPage(1); };
 
   return (
@@ -89,6 +114,15 @@ export default function Contacts() {
           <p className="page-subtitle">Manage your contact database</p>
         </div>
         <div className="flex gap-3">
+          <label className="btn-secondary cursor-pointer flex items-center gap-2">
+            <ImportIcon size={16} /> Import Excel
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={handleImport}
+            />
+          </label>
           <button onClick={() => navigate('/contacts/new')} className="btn-primary">
             <PlusIcon size={16} /> Add Contact
           </button>
