@@ -57,7 +57,7 @@ export default function Search() {
   const debouncedQuery = useDebounce(query, 500);
   const { canDownload } = useAuth();
   const navigate = useNavigate();
-  const limit = 10;
+  const limit = 50;
 
   const doSearch = useCallback(async (q, tab, p = 1, g = gender) => {
     if (!q.trim() && !g && tab !== 'PIN Code') return;
@@ -277,27 +277,27 @@ export default function Search() {
                   <motion.tr key={c.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.015, duration: 0.15, ease: 'easeOut' }}>
                     <td>
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                           style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>{c.name[0].toUpperCase()}</div>
-                        <span className="font-medium text-primary text-sm">{c.name}</span>
+                        <span className="font-medium text-primary text-xs leading-tight">{c.name}</span>
                       </div>
                     </td>
                     <td>
-                      <span className={`badge ${c.gender === 'female' ? 'badge-rose' : c.gender === 'male' ? 'badge-indigo' : 'badge-gray'} text-xs capitalize`}>
+                      <span className={`badge ${c.gender === 'female' ? 'badge-rose' : c.gender === 'male' ? 'badge-indigo' : 'badge-gray'} text-[10px] py-0.5 px-1.5 capitalize`}>
                         {c.gender || 'male'}
                       </span>
                     </td>
-                    <td><span className="font-mono text-sm">{maskMobile(c.mobile)}</span></td>
-                    <td>{c.city || '—'}</td>
-                    <td>{c.state || '—'}</td>
-                    <td>{c.village || '—'}</td>
-                    <td>{c.pincode ? <span className="badge badge-cyan">{c.pincode}</span> : '—'}</td>
+                    <td><span className="font-mono text-xs">{maskMobile(c.mobile)}</span></td>
+                    <td>{c.city || <span className="text-muted text-[10px]">—</span>}</td>
+                    <td>{c.state || <span className="text-muted text-[10px]">—</span>}</td>
+                    <td>{c.village || <span className="text-muted text-[10px]">—</span>}</td>
+                    <td>{c.pincode ? <span className="badge badge-cyan text-[10px] py-0.5 px-1.5">{c.pincode}</span> : <span className="text-muted text-[10px]">—</span>}</td>
                     {customCols.map(col => (
-                      <td key={col} className="text-sm">
+                      <td key={col} className="text-xs">
                         {c[col] !== undefined && c[col] !== null ? (
                           String(c[col])
                         ) : (
-                          <span className="text-muted text-xs">—</span>
+                          <span className="text-muted text-[10px]">—</span>
                         )}
                       </td>
                     ))}

@@ -3,6 +3,40 @@ const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 
+// Helper to query only columns that contain at least one non-empty value in the database
+async function getActiveColumns(pool) {
+  const colsRes = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
+  );
+  const allCols = colsRes.rows.map(r => r.column_name);
+
+  const stdCols = new Set([
+    'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
+    'created_by', 'created_at', 'updated_at'
+  ]);
+
+  const dynamicCols = allCols.filter(col => !stdCols.has(col));
+  if (dynamicCols.length === 0) {
+    return allCols;
+  }
+
+  // Check if each dynamic column has any non-empty value
+  const selectParts = dynamicCols.map(col => 
+    `EXISTS(SELECT 1 FROM contacts WHERE "${col}" IS NOT NULL AND TRIM(CAST("${col}" AS TEXT)) <> '') as "${col}"`
+  );
+  const checkQuery = `SELECT ${selectParts.join(', ')}`;
+  
+  try {
+    const checkRes = await pool.query(checkQuery);
+    const row = checkRes.rows[0];
+    const activeDynamicCols = dynamicCols.filter(col => row[col] === true);
+    return allCols.filter(col => stdCols.has(col) || activeDynamicCols.includes(col));
+  } catch (err) {
+    console.error('Error checking active columns:', err);
+    return allCols;
+  }
+}
+
 // ── Helper: build dynamic WHERE clause ───────────────────────────────────────
 function buildContactsWhere(filters) {
   const conditions = [];
@@ -75,10 +109,7 @@ router.get('/', auth, async (req, res) => {
       dataParams
     );
 
-    const colsResult = await pool.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
-    );
-    const columns = colsResult.rows.map(r => r.column_name);
+    const columns = await getActiveColumns(pool);
 
     return res.json({
       success: true,
@@ -124,10 +155,7 @@ router.get('/pincode/:pin', auth, async (req, res) => {
 
     const total = parseInt(countResult.rows[0].count);
 
-    const colsResult = await pool.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
-    );
-    const columns = colsResult.rows.map(r => r.column_name);
+    const columns = await getActiveColumns(pool);
 
     return res.json({
       success: true,
