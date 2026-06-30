@@ -7,7 +7,7 @@ import {
   DashboardIcon, ContactsIcon, SearchIcon, DownloadIcon,
   CommsIcon, UsersIcon, ReportsIcon, LogsIcon, DatabaseIcon,
   MenuIcon, CloseIcon, LogoutIcon, UserCircleIcon, ShieldIcon,
-  SunIcon, MoonIcon, CalendarIcon, BellIcon
+  SunIcon, MoonIcon, CalendarIcon, BellIcon, SettingsIcon, UserIcon
 } from './Icons';
 
 const navItems = [
@@ -308,12 +308,25 @@ export default function Layout({ children }) {
                           <p className="text-xs font-semibold text-primary truncate">{user?.full_name || user?.username}</p>
                           <span className={`inline-block mt-1 ${roleInfo.className}`} style={{ fontSize: '10px' }}>{roleInfo.label}</span>
                         </div>
-                        <button 
-                          onClick={() => { setShowUserDropdown(false); handleLogout(); }}
-                          className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center gap-2"
-                        >
-                          <LogoutIcon size={14} /> Logout
-                        </button>
+                        <div className="space-y-1">
+                          <button 
+                            onClick={() => { setShowUserDropdown(false); navigate('/profile'); }}
+                            className="w-full text-left px-2 py-2 rounded-lg text-xs font-semibold text-secondary hover:text-primary hover:bg-white/5 transition-all flex items-center gap-2.5"
+                          >
+                            <UserIcon size={16} className="text-indigo-400" /> My Profile
+                          </button>
+                          
+
+                          
+                          <div className="border-t border-subtle my-1" />
+                          
+                          <button 
+                            onClick={() => { setShowUserDropdown(false); handleLogout(); }}
+                            className="w-full text-left px-2 py-2 rounded-lg text-xs font-semibold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all flex items-center gap-2.5"
+                          >
+                            <LogoutIcon size={16} /> Sign Out
+                          </button>
+                        </div>
                       </motion.div>
                     </>
                   )}

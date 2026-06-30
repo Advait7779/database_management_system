@@ -1,8 +1,13 @@
-node_modules/
-dist/
-build/
-.env
-.env.*
-.vscode/
+# Ignore dependencies
+**/node_modules/
+**/dist/
+**/build/
+
+# Ignore environment variables
+**/.env
+**/.env.*
+
+# Ignore uploads and system files
+backend/uploads/*
 .DS_Store
-server/uploads/*
+Thumbs.db

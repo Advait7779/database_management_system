@@ -79,7 +79,7 @@ app.get('/api/health', async (req, res) => {
 
 // ── Serve Frontend in Production ──────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
-  const clientBuildPath = path.join(__dirname, '../client/dist');
+  const clientBuildPath = path.join(__dirname, '../frontend/dist');
   app.use(express.static(clientBuildPath));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {

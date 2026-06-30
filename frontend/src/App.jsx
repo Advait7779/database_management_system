@@ -13,6 +13,7 @@ import Communications from './pages/Communications';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Logs from './pages/Logs';
+import Profile from './pages/Profile';
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="/users" element={<Users />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/logs" element={<Logs />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
         </Routes>
       </BrowserRouter>

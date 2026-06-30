@@ -25,8 +25,7 @@
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
     "pg": "^8.22.0",
-    "uuid": "^14.0.1",
-    "webdatabase-monorepo": "file:.."
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
