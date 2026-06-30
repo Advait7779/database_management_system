@@ -149,27 +149,29 @@ export default function Contacts() {
       </div>
 
       {/* Filters */}
-      <div className="glass-card p-4 mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3 relative z-30">
-        <div className="search-bar max-w-xs w-full">
-          <SearchIcon size={18} className="text-muted flex-shrink-0" />
-          <input placeholder="Search by name or mobile..." value={search} onChange={handleSearch} />
-        </div>
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center md:ml-auto w-full md:w-auto justify-end">
+      <div className="glass-card p-4 mb-5 relative z-30">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="search-bar w-full">
+            <SearchIcon size={18} className="text-muted flex-shrink-0" />
+            <input placeholder="Search by name or mobile..." value={search} onChange={handleSearch} />
+          </div>
           <input value={cityFilter} onChange={e => { setCityFilter(e.target.value); setPage(1); }}
-            placeholder="Filter by city" className="input-field w-full sm:w-40" />
+            placeholder="Filter by city" className="input-field w-full" />
           <input value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1); }}
-            placeholder="Filter by state" className="input-field w-full sm:w-40" />
+            placeholder="Filter by state" className="input-field w-full" />
           <CustomSelect
             value={genderFilter}
             onChange={val => { setGenderFilter(val); setPage(1); }}
             options={genderOptions}
-            className="w-full sm:w-36"
+            className="w-full"
           />
-          {(search || cityFilter || stateFilter || genderFilter) && (
-            <button onClick={() => { setSearch(''); setCityFilter(''); setStateFilter(''); setGenderFilter(''); setPage(1); }}
-              className="btn-secondary text-xs w-full sm:w-auto justify-center">Clear</button>
-          )}
         </div>
+        {(search || cityFilter || stateFilter || genderFilter) && (
+          <div className="flex justify-end mt-3">
+            <button onClick={() => { setSearch(''); setCityFilter(''); setStateFilter(''); setGenderFilter(''); setPage(1); }}
+              className="btn-secondary text-xs px-3 py-1.5 justify-center">Clear Filters</button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
