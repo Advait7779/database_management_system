@@ -25,6 +25,7 @@ export default function Downloads() {
   const [previewCount, setPreviewCount] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function Downloads() {
       const res = await axios.get('/download/logs', { params: { page: p, limit: 5 } });
       if (res.data.success) {
         setLogs(res.data.data || []);
+        setTotal(res.data.pagination?.total || 0);
         setTotalPages(res.data.pagination?.totalPages || 1);
       }
     } catch { } finally { setLoading(false); }
@@ -186,7 +188,8 @@ export default function Downloads() {
           <div className="px-6 py-4 border-t border-subtle flex justify-end">
             <Pagination
               page={page}
-              totalPages={totalPages}
+              total={total}
+              limit={5}
               onPageChange={(p) => {
                 setPage(p);
                 fetchLogs(p);
