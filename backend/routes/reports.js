@@ -17,6 +17,7 @@ router.get('/dashboard', auth, async (req, res) => {
       voiceCalls,
       totalDownloads,
       activeUsers,
+      totalPincodes,
       recentActivity,
     ] = await Promise.all([
       pool.query(`SELECT COUNT(*) AS count FROM contacts`),
@@ -26,6 +27,7 @@ router.get('/dashboard', auth, async (req, res) => {
       pool.query(`SELECT COUNT(*) AS count FROM voice_logs`),
       pool.query(`SELECT COUNT(*) AS count FROM download_logs`),
       pool.query(`SELECT COUNT(*) AS count FROM users WHERE status = true`),
+      pool.query(`SELECT COUNT(DISTINCT pincode) AS count FROM contacts WHERE pincode IS NOT NULL AND pincode <> ''`),
       pool.query(
         `SELECT al.action, al.description, al.created_at, u.username, u.full_name
          FROM activity_logs al
@@ -45,6 +47,7 @@ router.get('/dashboard', auth, async (req, res) => {
         voice_calls:      parseInt(voiceCalls.rows[0].count),
         total_downloads:  parseInt(totalDownloads.rows[0].count),
         active_users:     parseInt(activeUsers.rows[0].count),
+        total_pincodes:   parseInt(totalPincodes.rows[0].count),
         recent_activity:  recentActivity.rows,
       },
     });

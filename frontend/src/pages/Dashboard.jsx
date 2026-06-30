@@ -59,7 +59,7 @@ export default function Dashboard() {
       try {
         const res = await axios.get('/reports/dashboard');
         if (res.data.success) {
-          setStats(res.data.data.stats || {});
+          setStats(res.data.data || {});
           setActivity((res.data.data.recent_activity || []).slice(0, 3));
         }
       } catch (e) {
