@@ -60,7 +60,7 @@ export default function Dashboard() {
         const res = await axios.get('/reports/dashboard');
         if (res.data.success) {
           setStats(res.data.data.stats || {});
-          setActivity(res.data.data.recent_activity || []);
+          setActivity((res.data.data.recent_activity || []).slice(0, 3));
         }
       } catch (e) {
         console.error('Dashboard fetch error', e);
@@ -149,7 +149,7 @@ export default function Dashboard() {
           <h2 className="font-semibold font-display text-primary mb-4 text-base">Recent Activity</h2>
           {loading ? (
             <div className="space-y-3">
-              {Array(5).fill(0).map((_, i) => (
+              {Array(3).fill(0).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="skeleton w-8 h-8 rounded-full" />
                   <div className="flex-1 space-y-1"><div className="skeleton h-3 w-48 rounded" /><div className="skeleton h-2 w-32 rounded" /></div>

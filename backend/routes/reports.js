@@ -31,7 +31,7 @@ router.get('/dashboard', auth, async (req, res) => {
          FROM activity_logs al
          LEFT JOIN users u ON al.user_id = u.id
          ORDER BY al.created_at DESC
-         LIMIT 10`
+         LIMIT 3`
       ),
     ]);
 
