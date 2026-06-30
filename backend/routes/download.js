@@ -100,15 +100,12 @@ router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
       { header: 'ID',               key: 'id',               width: 8  },
       { header: 'Name',             key: 'name',             width: 28 },
       { header: 'Mobile',           key: 'mobile',           width: 16 },
-      { header: 'Alternate Mobile', key: 'alternate_mobile', width: 16 },
       { header: 'Address',          key: 'address',          width: 35 },
       { header: 'City',             key: 'city',             width: 18 },
       { header: 'State',            key: 'state',            width: 18 },
       { header: 'Village',          key: 'village',          width: 18 },
       { header: 'Pincode',          key: 'pincode',          width: 12 },
       { header: 'Email',            key: 'email',            width: 28 },
-      { header: 'Notes',            key: 'notes',            width: 30 },
-      { header: 'Created At',       key: 'created_at',       width: 22 },
     ];
 
     // Style header row — bold, blue background, white font
@@ -133,15 +130,12 @@ router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
         id:               c.id,
         name:             c.name,
         mobile:           maskMobile(c.mobile),
-        alternate_mobile: maskMobile(c.alternate_mobile),
         address:          c.address         || '',
         city:             c.city            || '',
         state:            c.state           || '',
         village:          c.village         || '',
         pincode:          c.pincode         || '',
         email:            c.email           || '',
-        notes:            c.notes           || '',
-        created_at:       c.created_at ? new Date(c.created_at).toLocaleString() : '',
       });
 
       // Alternating row colour
@@ -189,8 +183,8 @@ router.get('/csv', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
     await logDownload(req, 'csv', req.query, contacts.length);
 
     const headers = [
-      'ID', 'Name', 'Mobile', 'Alternate Mobile', 'Address',
-      'City', 'State', 'Village', 'Pincode', 'Email', 'Notes', 'Created At',
+      'ID', 'Name', 'Mobile', 'Address',
+      'City', 'State', 'Village', 'Pincode', 'Email',
     ];
 
     const escapeCSV = (val) => {
@@ -206,15 +200,12 @@ router.get('/csv', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
       c.id,
       c.name,
       maskMobile(c.mobile),
-      maskMobile(c.alternate_mobile) || '',
       c.address          || '',
       c.city             || '',
       c.state            || '',
       c.village          || '',
       c.pincode          || '',
       c.email            || '',
-      c.notes            || '',
-      c.created_at ? new Date(c.created_at).toISOString() : '',
     ].map(escapeCSV).join(','));
 
     const csv = [headers.join(','), ...rows].join('\r\n');
