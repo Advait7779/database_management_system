@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useDebounce } from 'use-debounce';
 import { useAuth } from '../contexts/AuthContext';
 import { PlusIcon, ImportIcon, EditIcon, DeleteIcon, SearchIcon, EyeIcon, RefreshIcon } from '../components/Icons';
 import ConfirmModal from '../components/ConfirmModal';
@@ -34,10 +35,12 @@ export default function Contacts() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebounce(search, 500);
   const [cityFilter, setCityFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [deleteId, setDeleteId] = useState(null);
+  const [columns, setColumns] = useState([]);
   const { canDelete } = useAuth();
   const navigate = useNavigate();
   const limit = 10;
@@ -46,7 +49,7 @@ export default function Contacts() {
     setLoading(true);
     try {
       const params = { page, limit };
-      if (search) params.q = search;
+      if (debouncedSearch) params.q = debouncedSearch;
       if (cityFilter) params.city = cityFilter;
       if (stateFilter) params.state = stateFilter;
       if (genderFilter) params.gender = genderFilter;
@@ -54,15 +57,24 @@ export default function Contacts() {
       if (res.data.success) {
         setContacts(res.data.data || []);
         setTotal(res.data.pagination?.total || 0);
+        setColumns(res.data.columns || []);
       }
     } catch {
       toast.error('Failed to load contacts');
     } finally {
       setLoading(false);
     }
-  }, [page, search, cityFilter, stateFilter, genderFilter]);
+  }, [page, debouncedSearch, cityFilter, stateFilter, genderFilter]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  const customCols = columns.filter(col => {
+    const stdCols = new Set([
+      'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
+      'created_by', 'created_at', 'updated_at', 'created_by_name'
+    ]);
+    return !stdCols.has(col.toLowerCase());
+  });
 
   const handleDelete = async () => {
     try {
@@ -169,6 +181,9 @@ export default function Contacts() {
                 <th>City</th>
                 <th>State</th>
                 <th>PIN Code</th>
+                {customCols.map(col => (
+                  <th key={col} className="capitalize">{col.replace(/_/g, ' ')}</th>
+                ))}
                 <th>Added</th>
                 <th>Actions</th>
               </tr>
@@ -177,14 +192,14 @@ export default function Contacts() {
               {loading ? (
                 Array(limit).fill(0).map((_, i) => (
                   <tr key={i}>
-                    {Array(9).fill(0).map((_, j) => (
+                    {Array(9 + customCols.length).fill(0).map((_, j) => (
                       <td key={j}><div className="skeleton h-4 rounded w-full" /></td>
                     ))}
                   </tr>
                 ))
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-16 text-muted">
+                  <td colSpan={9 + customCols.length} className="text-center py-16 text-muted">
                     <div className="flex flex-col items-center gap-3">
                       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
                         <circle cx="24" cy="24" r="20" stroke="rgba(99,102,241,0.3)" strokeWidth="2"/>
@@ -225,6 +240,15 @@ export default function Contacts() {
                       <td>
                         {c.pincode ? <span className="badge badge-cyan text-xs">{c.pincode}</span> : <span className="text-muted text-xs">—</span>}
                       </td>
+                      {customCols.map(col => (
+                        <td key={col} className="text-sm">
+                          {c[col] !== undefined && c[col] !== null ? (
+                            String(c[col])
+                          ) : (
+                            <span className="text-muted text-xs">—</span>
+                          )}
+                        </td>
+                      ))}
                       <td className="text-xs text-muted">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
                       <td>
                         <div className="flex items-center gap-2">

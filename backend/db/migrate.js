@@ -148,6 +148,19 @@ async function migrate() {
 
     // ── Indexes ────────────────────────────────────────────────────────────────
 
+    // Enable pg_trgm extension for trigram search (used to index ILIKE queries)
+    await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+
+    // GIN Trigram indexes for fast ILIKE '%term%' pattern matching
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_name_trgm    ON contacts USING gin (name gin_trgm_ops);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_mobile_trgm  ON contacts USING gin (mobile gin_trgm_ops);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_email_trgm   ON contacts USING gin (email gin_trgm_ops);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_city_trgm    ON contacts USING gin (city gin_trgm_ops);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_state_trgm   ON contacts USING gin (state gin_trgm_ops);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_village_trgm ON contacts USING gin (village gin_trgm_ops);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_pincode_trgm ON contacts USING gin (pincode gin_trgm_ops);`);
+
+    // Standard B-tree indexes for exact matching/sorting
     await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_pincode  ON contacts(pincode);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_city     ON contacts(city);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_state    ON contacts(state);`);

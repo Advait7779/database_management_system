@@ -39,13 +39,13 @@ router.get('/', auth, async (req, res) => {
     let idx = 1;
 
     if (q) {
-      conditions.push(`(name ILIKE $${idx} OR mobile ILIKE $${idx} OR city ILIKE $${idx} OR state ILIKE $${idx} OR pincode ILIKE $${idx} OR village ILIKE $${idx} OR email ILIKE $${idx})`);
+      conditions.push(`(c.name ILIKE $${idx} OR c.mobile ILIKE $${idx} OR c.city ILIKE $${idx} OR c.state ILIKE $${idx} OR c.pincode ILIKE $${idx} OR c.village ILIKE $${idx} OR c.email ILIKE $${idx})`);
       params.push(`%${q}%`);
       idx++;
     }
 
     if (gender && ['male', 'female', 'other'].includes(gender)) {
-      conditions.push(`gender = $${idx}`);
+      conditions.push(`c.gender = $${idx}`);
       params.push(gender);
       idx++;
     }
@@ -53,7 +53,7 @@ router.get('/', auth, async (req, res) => {
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const countResult = await pool.query(
-      `SELECT COUNT(*) FROM contacts ${whereClause}`,
+      `SELECT COUNT(*) FROM contacts c ${whereClause}`,
       params
     );
     const total = parseInt(countResult.rows[0].count);
@@ -72,9 +72,15 @@ router.get('/', auth, async (req, res) => {
       dataParams
     );
 
+    const colsResult = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
+    );
+    const columns = colsResult.rows.map(r => r.column_name);
+
     return res.json({
       success: true,
       data: result.rows,
+      columns,
       pagination: {
         total,
         page,
@@ -248,7 +254,81 @@ router.post(
         return res.status(400).json({ success: false, message: 'File is empty or has no valid rows' });
       }
 
-      // Bulk insert in chunks of 500
+      // 1. Normalize name, mobile fields & clean Postgres NULL strings
+      for (const row of contacts) {
+        if (!row['name']) {
+          row['name'] = row['full_name'] || row['cname'] || row['fname'] || row['first_name'] || '';
+        }
+        if (row['name'] === '\\N') row['name'] = '';
+        row['name'] = String(row['name']).trim();
+
+        if (!row['mobile']) {
+          row['mobile'] = row['phone'] || row['contact'] || row['mobile_number'] || '';
+        }
+        if (row['mobile'] === '\\N') row['mobile'] = '';
+        row['mobile'] = String(row['mobile']).trim();
+
+        // Convert scientific formats like 7.74E+09 back to digits
+        if (row['mobile'] && row['mobile'].toUpperCase().includes('E')) {
+          const num = Number(row['mobile']);
+          if (!isNaN(num)) {
+            row['mobile'] = String(num);
+          }
+        }
+      }
+
+      // 2. Query existing columns in the database contacts table
+      const existingColsRes = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
+      );
+      const existingCols = new Set(existingColsRes.rows.map(r => r.column_name.toLowerCase()));
+
+      // 3. Scan unique headers from file and dynamically add missing columns
+      const fileHeaders = new Set();
+      for (const row of contacts) {
+        for (const key of Object.keys(row)) {
+          if (key) fileHeaders.add(key);
+        }
+      }
+
+      for (const header of fileHeaders) {
+        // Sanitize header to lowercase letters, digits, and underscores
+        let sanitized = header.replace(/[^a-z0-9_]/gi, '_').toLowerCase();
+        if (/^[0-9]/.test(sanitized)) {
+          sanitized = '_' + sanitized;
+        }
+        const colName = sanitized.slice(0, 60);
+
+        if (colName && !existingCols.has(colName)) {
+          console.log(`Adding dynamic column: ${colName}`);
+          await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS "${colName}" TEXT`);
+          existingCols.add(colName);
+        }
+      }
+
+      // 4. Create active database columns list mapping original file keys
+      const activeInsertCols = [];
+      for (const header of fileHeaders) {
+        let sanitized = header.replace(/[^a-z0-9_]/gi, '_').toLowerCase();
+        if (/^[0-9]/.test(sanitized)) {
+          sanitized = '_' + sanitized;
+        }
+        const colName = sanitized.slice(0, 60);
+
+        if (existingCols.has(colName) && colName !== 'id' && colName !== 'created_at' && colName !== 'updated_at' && colName !== 'created_by') {
+          activeInsertCols.push({ original: header, dbName: colName });
+        }
+      }
+
+      // Ensure that 'name' and 'mobile' exist in the dynamic inserts mapping
+      if (!activeInsertCols.some(c => c.dbName === 'name') && existingCols.has('name')) {
+        activeInsertCols.push({ original: 'name', dbName: 'name' });
+      }
+      if (!activeInsertCols.some(c => c.dbName === 'mobile') && existingCols.has('mobile')) {
+        activeInsertCols.push({ original: 'mobile', dbName: 'mobile' });
+      }
+
+      // 5. Bulk insert chunk loop
       let inserted = 0;
       let skipped = 0;
       const chunkSize = 500;
@@ -260,31 +340,31 @@ router.post(
         let paramIdx = 1;
 
         for (const row of chunk) {
-          const name   = row['name']   || row['full_name'] || '';
-          const mobile = row['mobile'] || row['phone']     || row['contact'] || '';
+          if (!row['name'] || !row['mobile']) { skipped++; continue; }
 
-          if (!name || !mobile) { skipped++; continue; }
+          const rowValues = [];
+          for (const col of activeInsertCols) {
+            let val = row[col.original];
+            if (val === undefined || val === null || String(val).trim() === '\\N' || String(val).trim() === '') {
+              val = null;
+            } else {
+              val = String(val).trim();
+            }
+            rowValues.push(`$${paramIdx++}`);
+            params.push(val);
+          }
+          // Append created_by parameter
+          rowValues.push(`$${paramIdx++}`);
+          params.push(req.user.id);
 
-          valueRows.push(`($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++})`);
-          params.push(
-            name,
-            String(mobile),
-            row['address'] || null,
-            row['city']    || null,
-            row['state']   || null,
-            row['village'] || null,
-            row['pincode'] || row['zip'] || null,
-            row['email']   || null,
-            row['notes']   || null,
-            req.user.id
-          );
+          valueRows.push(`(${rowValues.join(', ')})`);
           inserted++;
         }
 
         if (valueRows.length > 0) {
+          const colNames = activeInsertCols.map(c => `"${c.dbName}"`).concat('created_by');
           const query = `
-            INSERT INTO contacts
-              (name, mobile, address, city, state, village, pincode, email, notes, created_by)
+            INSERT INTO contacts (${colNames.join(', ')})
             VALUES ${valueRows.join(', ')}
             ON CONFLICT DO NOTHING
           `;
