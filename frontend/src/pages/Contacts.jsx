@@ -41,7 +41,7 @@ export default function Contacts() {
   const [genderFilter, setGenderFilter] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [columns, setColumns] = useState([]);
-  const { canDelete } = useAuth();
+  const { canDelete, canManageUsers } = useAuth();
   const navigate = useNavigate();
   const limit = 50;
 
