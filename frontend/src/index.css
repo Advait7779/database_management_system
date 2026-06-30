@@ -286,13 +286,13 @@
     border-spacing: 0;
   }
   .data-table th {
-    @apply px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider;
+    @apply px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap;
     color: var(--table-th-color);
     background: var(--table-th-bg);
     border-bottom: 1px solid var(--border-color);
   }
   .data-table td {
-    @apply px-3 py-1 text-xs;
+    @apply px-3 py-1 text-xs whitespace-nowrap;
     color: var(--text-secondary);
     border-bottom: 1px solid var(--table-tr-border);
     transition: background 0.2s;

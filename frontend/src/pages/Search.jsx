@@ -279,7 +279,7 @@ export default function Search() {
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                           style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>{c.name[0].toUpperCase()}</div>
-                        <span className="font-medium text-primary text-xs leading-tight">{c.name}</span>
+                        <span className="font-medium text-primary text-xs leading-tight whitespace-nowrap">{c.name}</span>
                       </div>
                     </td>
                     <td>

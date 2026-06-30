@@ -230,8 +230,8 @@ export default function Contacts() {
                             {c.name[0].toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-primary text-xs leading-tight">{c.name}</p>
-                            {c.email && <p className="text-[10px] text-muted leading-tight">{c.email}</p>}
+                            <p className="font-medium text-primary text-xs leading-tight whitespace-nowrap">{c.name}</p>
+                            {c.email && <p className="text-[10px] text-muted leading-tight whitespace-nowrap">{c.email}</p>}
                           </div>
                         </div>
                       </td>
