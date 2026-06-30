@@ -66,9 +66,9 @@ async function migrate() {
         city VARCHAR(100),
         state VARCHAR(100),
         village VARCHAR(100),
-        pincode VARCHAR(10),
+        pincode VARCHAR(100),
         email VARCHAR(255),
-        gender VARCHAR(10) DEFAULT 'male' CHECK (gender IN ('male','female','other')),
+        gender VARCHAR(50) DEFAULT 'male',
         notes TEXT,
         created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT NOW(),
@@ -81,6 +81,14 @@ async function migrate() {
       ALTER TABLE contacts DROP COLUMN IF EXISTS alternate_mobile;
     `);
     console.log('✓ contacts alternate_mobile column dropped (if existed)');
+
+    // Widen pincode and gender columns and drop constraint
+    await client.query(`
+      ALTER TABLE contacts ALTER COLUMN pincode TYPE VARCHAR(100);
+      ALTER TABLE contacts ALTER COLUMN gender TYPE VARCHAR(50);
+      ALTER TABLE contacts DROP CONSTRAINT IF EXISTS contacts_gender_check;
+    `);
+    console.log('✓ contacts columns pincode/gender type widened to VARCHAR(100)/VARCHAR(50)');
 
     // ── Merge ladd column into address and drop it (if exists) ──────────────────
     const laddColCheck = await client.query(`

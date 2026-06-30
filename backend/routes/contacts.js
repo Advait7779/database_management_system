@@ -298,6 +298,18 @@ router.post(
         const emailVal = row['email'] || row['email_address'] || row['mail'] || '';
         row['email'] = (emailVal === '\\N') ? '' : String(emailVal).trim();
 
+        // Extract gender and normalize it to 'male', 'female', or 'other'
+        let genVal = String(row['gender'] || '').trim().toLowerCase();
+        if (genVal.startsWith('m')) {
+          row['gender'] = 'male';
+        } else if (genVal.startsWith('f') || genVal.startsWith('w')) {
+          row['gender'] = 'female';
+        } else if (genVal.startsWith('o')) {
+          row['gender'] = 'other';
+        } else {
+          row['gender'] = 'male'; // fallback to default
+        }
+
         // Delete all synonyms from the row object to prevent creating duplicate dynamic columns
         const synonyms = [
           'full_name', 'fullname', 'cname', 'fname', 'first_name', 'contact_name',
