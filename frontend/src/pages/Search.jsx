@@ -55,7 +55,7 @@ export default function Search() {
     return !stdCols.has(col.toLowerCase());
   });
   const debouncedQuery = useDebounce(query, 500);
-  const { canDownload } = useAuth();
+  const { canDownload, canManageUsers } = useAuth();
   const navigate = useNavigate();
   const limit = 50;
 
@@ -257,7 +257,7 @@ export default function Search() {
                   {customCols.map(col => (
                     <th key={col} className="capitalize">{col.replace(/_/g, ' ')}</th>
                   ))}
-                  <th>Actions</th>
+                  {canManageUsers() && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -301,12 +301,14 @@ export default function Search() {
                         )}
                       </td>
                     ))}
-                    <td>
-                      <button onClick={() => navigate(`/contacts/${c.id}/edit`)}
-                        className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-400/10 transition-colors">
-                        <EditIcon size={15} />
-                      </button>
-                    </td>
+                    {canManageUsers() && (
+                      <td>
+                        <button onClick={() => navigate(`/contacts/${c.id}/edit`)}
+                          className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-400/10 transition-colors">
+                          <EditIcon size={15} />
+                        </button>
+                      </td>
+                    )}
                   </motion.tr>
                 ))}
               </tbody>

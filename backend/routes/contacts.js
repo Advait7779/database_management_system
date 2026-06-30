@@ -165,7 +165,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // ── POST /api/contacts ────────────────────────────────────────────────────────
-router.post('/', auth, roleGuard(['super_admin', 'admin', 'staff']), async (req, res) => {
+router.post('/', auth, roleGuard(['super_admin', 'admin']), async (req, res) => {
   try {
     const {
       name, mobile, address, city, state,
@@ -194,7 +194,7 @@ router.post('/', auth, roleGuard(['super_admin', 'admin', 'staff']), async (req,
 });
 
 // ── PUT /api/contacts/:id ─────────────────────────────────────────────────────
-router.put('/:id', auth, roleGuard(['super_admin', 'admin', 'staff']), async (req, res) => {
+router.put('/:id', auth, roleGuard(['super_admin', 'admin']), async (req, res) => {
   try {
     const {
       name, mobile, address, city, state,

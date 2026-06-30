@@ -4,7 +4,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 
-const COMM_ROLES = ['super_admin', 'admin', 'staff'];
+const COMM_ROLES = ['super_admin', 'admin', 'api_user'];
 
 // ── Helper: paginate ──────────────────────────────────────────────────────────
 function paginate(query) {

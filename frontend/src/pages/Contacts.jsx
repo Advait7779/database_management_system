@@ -126,18 +126,22 @@ export default function Contacts() {
           <p className="page-subtitle">Manage your contact database</p>
         </div>
         <div className="flex gap-3">
-          <label className="btn-secondary cursor-pointer flex items-center gap-2">
-            <ImportIcon size={16} /> Import Excel
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={handleImport}
-            />
-          </label>
-          <button onClick={() => navigate('/contacts/new')} className="btn-primary">
-            <PlusIcon size={16} /> Add Contact
-          </button>
+          {canManageUsers() && (
+            <label className="btn-secondary cursor-pointer">
+              <ImportIcon size={16} /> Import Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleImport}
+              />
+            </label>
+          )}
+          {canManageUsers() && (
+            <button onClick={() => navigate('/contacts/new')} className="btn-primary">
+              <PlusIcon size={16} /> Add Contact
+            </button>
+          )}
           <button className="btn-secondary" title="Refresh" onClick={fetchContacts}>
             <RefreshIcon size={16} />
           </button>
@@ -185,7 +189,7 @@ export default function Contacts() {
                   <th key={col} className="capitalize">{col.replace(/_/g, ' ')}</th>
                 ))}
                 <th>Added</th>
-                <th>Actions</th>
+                {canManageUsers() && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -250,20 +254,22 @@ export default function Contacts() {
                         </td>
                       ))}
                       <td className="text-xs text-muted">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => navigate(`/contacts/${c.id}/edit`)}
-                            className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-400/10 transition-colors" title="Edit">
-                            <EditIcon size={15} />
-                          </button>
-                          {canDelete() && (
-                            <button onClick={() => setDeleteId(c.id)}
-                              className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-400/10 transition-colors" title="Delete">
-                              <DeleteIcon size={15} />
+                      {canManageUsers() && (
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => navigate(`/contacts/${c.id}/edit`)}
+                              className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-400/10 transition-colors" title="Edit">
+                              <EditIcon size={15} />
                             </button>
-                          )}
-                        </div>
-                      </td>
+                            {canDelete() && (
+                              <button onClick={() => setDeleteId(c.id)}
+                                className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-400/10 transition-colors" title="Delete">
+                                <DeleteIcon size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </motion.tr>
                   ))}
                 </AnimatePresence>
