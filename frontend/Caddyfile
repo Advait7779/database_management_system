@@ -1,0 +1,28 @@
+{
+    admin off
+    auto_https off
+}
+
+:80 {
+    encode gzip
+
+    log {
+        output stdout
+    }
+
+    # Proxy all /api/* requests to the backend
+    handle /api/* {
+        reverse_proxy 91.108.111.107:3001 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+
+    # Serve static React build with SPA fallback
+    handle {
+        root * /app/dist
+        try_files {path} /index.html
+        file_server
+    }
+}
