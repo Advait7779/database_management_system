@@ -90,6 +90,7 @@ app.get('/api/health', async (req, res) => {
       success: true,
       status: 'ok',
       database: 'connected',
+      hostname: require('os').hostname(),
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
