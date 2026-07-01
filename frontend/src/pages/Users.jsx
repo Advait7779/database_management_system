@@ -10,8 +10,8 @@ import CustomSelect from '../components/CustomSelect';
 
 const ROLES = ['super_admin', 'admin', 'staff', 'download_user', 'api_user'];
 const roleBadge = { super_admin: 'badge-violet', admin: 'badge-indigo', staff: 'badge-cyan', download_user: 'badge-amber', api_user: 'badge-emerald' };
-const roleLabel = { super_admin: 'Super Admin', admin: 'Admin', staff: 'Staff', download_user: 'Download User', api_user: 'API User' };
-const roleOptions = ROLES.map(r => ({ value: r, label: roleLabel[r] }));
+const roleLabel = { super_admin: 'Super Admin', admin: 'Admin', staff: 'Viewer', download_user: 'Download User', api_user: 'API User' };
+const roleOptions = [{ value: 'staff', label: 'Viewer' }];
 
 function UserModal({ user, onClose, onSave }) {
   const isEdit = Boolean(user?.id);
