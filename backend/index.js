@@ -103,17 +103,8 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// ── Serve Frontend in Production ──────────────────────────────────────────────
-if (process.env.NODE_ENV === 'production') {
-  const clientBuildPath = path.join(__dirname, '../frontend/dist');
-  app.use(express.static(clientBuildPath));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) {
-      return next();
-    }
-    res.sendFile(path.join(clientBuildPath, 'index.html'));
-  });
-}
+// ── Note: Frontend is served as a separate service ───────────────────────────
+// (No static file serving needed here)
 
 // ── 404 Handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {
