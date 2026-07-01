@@ -10,9 +10,9 @@
         output stdout
     }
 
-    # Proxy all /api/* requests to the backend container internally
+    # Proxy all /api/* requests to the backend container internally using its network alias
     handle /api/* {
-        reverse_proxy qg84w84wo0kgc0swockg48ww:5001 {
+        reverse_proxy db-backend:5001 {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
