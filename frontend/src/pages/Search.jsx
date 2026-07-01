@@ -274,7 +274,7 @@ export default function Search() {
                     </td>
                   </tr>
                 ) : results.map((c, i) => (
-                  <motion.tr key={c.id} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.015, duration: 0.15, ease: 'easeOut' }}>
+                  <tr key={c.id}>
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
@@ -309,7 +309,7 @@ export default function Search() {
                         </button>
                       </td>
                     )}
-                  </motion.tr>
+                  </tr>
                 ))}
               </tbody>
             </table>

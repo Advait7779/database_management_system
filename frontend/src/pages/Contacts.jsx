@@ -219,9 +219,9 @@ export default function Contacts() {
                   </td>
                 </tr>
               ) : (
-                <AnimatePresence>
+                <>
                   {contacts.map((c, i) => (
-                    <motion.tr key={c.id} custom={i} initial="hidden" animate="visible" variants={rowVariants}>
+                    <tr key={c.id}>
                       <td className="text-muted text-xs">{(page - 1) * limit + i + 1}</td>
                       <td>
                         <div className="flex items-center gap-2">
@@ -272,9 +272,9 @@ export default function Contacts() {
                           </div>
                         </td>
                       )}
-                    </motion.tr>
+                    </tr>
                   ))}
-                </AnimatePresence>
+                </>
               )}
             </tbody>
           </table>
