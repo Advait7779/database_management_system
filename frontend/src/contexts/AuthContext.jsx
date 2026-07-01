@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Always use /api as base — nginx proxies it to the backend
+const API_BASE = '/api';
 
 // Configure axios defaults
 axios.defaults.baseURL = API_BASE;
