@@ -9,6 +9,13 @@ const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 const { logActivity } = require('../middleware/logger');
 
+function toTitleCase(str) {
+  if (!str) return '';
+  return String(str)
+    .toLowerCase()
+    .replace(/(?:^|\s|-|\/)\S/g, m => m.toUpperCase());
+}
+
 // ── Multer setup for CSV/Excel uploads ───────────────────────────────────────
 const upload = multer({
   dest: path.join(__dirname, '../uploads/'),
@@ -167,7 +174,7 @@ router.get('/:id', auth, async (req, res) => {
 // ── POST /api/contacts ────────────────────────────────────────────────────────
 router.post('/', auth, roleGuard(['super_admin', 'admin']), async (req, res) => {
   try {
-    const {
+    let {
       name, mobile, address, city, state,
       village, pincode, email, gender, notes,
     } = req.body;
@@ -175,6 +182,12 @@ router.post('/', auth, roleGuard(['super_admin', 'admin']), async (req, res) => 
     if (!name || !mobile) {
       return res.status(400).json({ success: false, message: 'Name and mobile are required' });
     }
+
+    if (name) name = toTitleCase(name);
+    if (city) city = toTitleCase(city);
+    if (state) state = toTitleCase(state);
+    if (village) village = toTitleCase(village);
+    if (address) address = toTitleCase(address);
 
     const result = await pool.query(
       `INSERT INTO contacts
@@ -196,7 +209,7 @@ router.post('/', auth, roleGuard(['super_admin', 'admin']), async (req, res) => 
 // ── PUT /api/contacts/:id ─────────────────────────────────────────────────────
 router.put('/:id', auth, roleGuard(['super_admin', 'admin']), async (req, res) => {
   try {
-    const {
+    let {
       name, mobile, address, city, state,
       village, pincode, email, gender, notes,
     } = req.body;
@@ -205,6 +218,12 @@ router.put('/:id', auth, roleGuard(['super_admin', 'admin']), async (req, res) =
     if (existing.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Contact not found' });
     }
+
+    if (name) name = toTitleCase(name);
+    if (city) city = toTitleCase(city);
+    if (state) state = toTitleCase(state);
+    if (village) village = toTitleCase(village);
+    if (address) address = toTitleCase(address);
 
     const result = await pool.query(
       `UPDATE contacts SET
@@ -520,6 +539,9 @@ router.post(
               val = null;
             } else {
               val = String(val).trim();
+              if (['name', 'city', 'state', 'village', 'address'].includes(col.dbName)) {
+                val = toTitleCase(val);
+              }
             }
             rowValues.push(`$${paramIdx++}`);
             params.push(val);
