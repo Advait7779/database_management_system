@@ -10,9 +10,9 @@
         output stdout
     }
 
-    # Proxy all /api/* requests to the backend using the resolved host gateway IP
+    # Proxy all /api/* requests to the backend container internally
     handle /api/* {
-        reverse_proxy {$BACKEND_IP:172.17.0.1}:3001 {
+        reverse_proxy qg84w84wo0kgc0swockg48ww:5001 {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
