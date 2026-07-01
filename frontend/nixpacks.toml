@@ -1,2 +1,2 @@
 [start]
-cmd = "caddy run --config Caddyfile --adapter caddyfile 2>&1"
+cmd = "export BACKEND_IP=$(node get-gateway.js) && caddy run --config Caddyfile --adapter caddyfile 2>&1"
