@@ -19,24 +19,15 @@ async function seed() {
       console.log('✓ Default super_admin created');
     }
 
-    // 2. Insert dummy users for other roles if they don't exist
-    const rolesToCreate = [
-      { username: 'staff', email: 'staff@webdb.com', role: 'staff', name: 'Staff User' },
-      { username: 'downloader', email: 'download@webdb.com', role: 'download_user', name: 'Download Manager' },
-      { username: 'apiuser', email: 'api@webdb.com', role: 'api_user', name: 'API Integrator' },
-      { username: 'adminuser', email: 'adminuser@webdb.com', role: 'admin', name: 'Admin Manager' }
-    ];
-
-    for (const r of rolesToCreate) {
-      const check = await pool.query("SELECT id FROM users WHERE username = $1", [r.username]);
-      if (check.rows.length === 0) {
-        const hashedPw = await bcrypt.hash('User@123', 10);
-        await pool.query(
-          "INSERT INTO users (username, email, password, role, full_name) VALUES ($1, $2, $3, $4, $5)",
-          [r.username, r.email, hashedPw, r.role, r.name]
-        );
-        console.log(`✓ User role created: ${r.username}`);
-      }
+    // 2. Insert read-only viewer user if it doesn't exist
+    const viewerCheck = await pool.query("SELECT id FROM users WHERE username = 'viewer'");
+    if (viewerCheck.rows.length === 0) {
+      const hashedPw = await bcrypt.hash('Viewer@123', 10);
+      await pool.query(
+        "INSERT INTO users (username, email, password, role, full_name, designation) VALUES ($1, $2, $3, $4, $5, $6)",
+        ['viewer', 'viewer@webdb.com', hashedPw, 'staff', 'Read-Only Viewer', 'Data Viewer']
+      );
+      console.log('✓ Viewer user created');
     }
 
     // 3. Clear existing contacts and logs for a completely clean db state
