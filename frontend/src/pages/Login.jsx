@@ -135,12 +135,7 @@ export default function Login() {
             </motion.button>
           </form>
 
-          {/* Hint */}
-          <div className="mt-6 p-4 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-            <p className="text-xs text-muted text-center">
-              Default credentials: <span className="text-indigo-400 font-mono font-semibold">admin</span> / <span className="text-indigo-400 font-mono font-semibold">Admin@123</span>
-            </p>
-          </div>
+
         </div>
 
         <p className="text-center text-xs text-muted mt-6">
