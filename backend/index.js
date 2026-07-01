@@ -22,16 +22,29 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:5175',
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN,
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+      // Allow localhost origins in development
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
         return callback(null, true);
       }
+      // Allow any explicitly configured origin
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // In production, if FRONTEND_URL is not set, allow all (open) — log a warning
+      if (!process.env.FRONTEND_URL && !process.env.CORS_ORIGIN) {
+        console.warn(`[CORS] No FRONTEND_URL set — allowing origin: ${origin}`);
+        return callback(null, true);
+      }
+      console.warn(`[CORS] Blocked origin: ${origin}`);
       return callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
@@ -117,10 +130,10 @@ app.use((err, req, res, next) => {
 });
 
 // ── Start Server ──────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🚀 Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 Server running on 0.0.0.0:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔒 CORS origin:  ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+  console.log(`🔒 CORS origins: ${allowedOrigins.join(', ') || '(open)'}`);
   console.log(`📁 Uploads dir:  ${uploadsDir}\n`);
 });
 
