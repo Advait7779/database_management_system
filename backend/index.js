@@ -91,6 +91,8 @@ app.get('/api/health', async (req, res) => {
       status: 'ok',
       database: 'connected',
       hostname: require('os').hostname(),
+      coolify_container_name: process.env.COOLIFY_CONTAINER_NAME || null,
+      coolify_app_id: process.env.COOLIFY_APP_ID || null,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
