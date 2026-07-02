@@ -8,7 +8,7 @@ let poolConfig = {};
 if (process.env.DATABASE_URL) {
   poolConfig = {
     connectionString: process.env.DATABASE_URL,
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   };
 } else {
   poolConfig = {
@@ -17,7 +17,7 @@ if (process.env.DATABASE_URL) {
     database: process.env.DB_NAME || 'webdatabase',
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || 'password',
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   };
 }
 

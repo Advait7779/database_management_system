@@ -10,6 +10,10 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy headers (required behind Caddy/nginx reverse proxy)
+// Fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR from express-rate-limit
+app.set('trust proxy', 1);
+
 // ── Ensure uploads directory exists ──────────────────────────────────────────
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
