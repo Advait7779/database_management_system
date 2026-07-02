@@ -60,9 +60,14 @@ async function getActiveColumns(pool) {
     'created_by', 'created_at', 'updated_at'
   ]);
 
-  const dynamicCols = allCols.filter(col => !stdCols.has(col));
+  const isSrNoCol = (name) => {
+    const n = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return ['srno', 'sno', 'slno', 'seq', 'seqno', 'serialno', 'sr'].includes(n) || n.includes('srno');
+  };
+
+  const dynamicCols = allCols.filter(col => !stdCols.has(col) && !isSrNoCol(col));
   if (dynamicCols.length === 0) {
-    return allCols;
+    return allCols.filter(col => stdCols.has(col));
   }
 
   // Check if each dynamic column has any non-empty value
@@ -244,17 +249,47 @@ router.put('/:id', auth, roleGuard(['super_admin', 'admin']), async (req, res) =
   }
 });
 
-// ── DELETE /api/contacts/:id ──────────────────────────────────────────────────
-router.delete('/:id', auth, roleGuard(['super_admin', 'admin']), async (req, res) => {
+// ── DELETE /api/contacts/all & DELETE /api/contacts ─────────────────────────
+const deleteAllHandler = async (req, res) => {
   try {
-    const existing = await pool.query(`SELECT id, name FROM contacts WHERE id = $1`, [req.params.id]);
+    const countRes = await pool.query(`SELECT COUNT(*) FROM contacts`);
+    const count = parseInt(countRes.rows[0].count, 10);
+
+    // TRUNCATE is instantaneous for large tables (400k+ rows) compared to row-by-row DELETE
+    await pool.query(`TRUNCATE TABLE contacts RESTART IDENTITY CASCADE`);
+
+    await logActivity(req, 'DELETE_ALL_CONTACTS', `Deleted all ${count} contacts from database`);
+
+    return res.json({ success: true, message: `Successfully deleted all ${count.toLocaleString()} contacts`, count });
+  } catch (err) {
+    console.error('Delete all contacts error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+  }
+};
+
+router.delete('/all', auth, roleGuard(['super_admin', 'admin']), deleteAllHandler);
+router.delete('/', auth, roleGuard(['super_admin', 'admin']), deleteAllHandler);
+
+// ── DELETE /api/contacts/:id ──────────────────────────────────────────────────
+router.delete('/:id', auth, roleGuard(['super_admin', 'admin']), async (req, res, next) => {
+  if (req.params.id === 'all') {
+    return deleteAllHandler(req, res);
+  }
+
+  const contactId = parseInt(req.params.id, 10);
+  if (isNaN(contactId)) {
+    return res.status(400).json({ success: false, message: 'Invalid contact ID' });
+  }
+
+  try {
+    const existing = await pool.query(`SELECT id, name FROM contacts WHERE id = $1`, [contactId]);
     if (existing.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Contact not found' });
     }
 
-    await pool.query(`DELETE FROM contacts WHERE id = $1`, [req.params.id]);
+    await pool.query(`DELETE FROM contacts WHERE id = $1`, [contactId]);
 
-    await logActivity(req, 'DELETE_CONTACT', `Deleted contact id=${req.params.id} "${existing.rows[0].name}"`);
+    await logActivity(req, 'DELETE_CONTACT', `Deleted contact id=${contactId} "${existing.rows[0].name}"`);
 
     return res.json({ success: true, message: 'Contact deleted' });
   } catch (err) {
@@ -302,16 +337,40 @@ router.post(
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(filePath);
         const worksheet = workbook.worksheets[0];
-        const headers = [];
-        worksheet.getRow(1).eachCell((cell) => {
-          headers.push(cell.value ? String(cell.value).toLowerCase().trim() : '');
+
+        // Track headers with their actual column positions
+        const headerMap = {}; // { colNumber: headerName }
+        worksheet.getRow(1).eachCell((cell, colNumber) => {
+          const val = cell.value ? String(cell.value).toLowerCase().trim() : '';
+          if (val) headerMap[colNumber] = val;
         });
+        const headerColumns = Object.keys(headerMap).map(Number);
+        const headers = headerColumns.map(c => headerMap[c]);
+
+        console.log('Excel headers detected:', JSON.stringify(headerMap));
+
         worksheet.eachRow((row, rowNumber) => {
           if (rowNumber === 1) return;
           const obj = {};
-          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-            obj[headers[colNumber - 1]] = cell.value || '';
-          });
+          // Read each column by its exact position — never miss trailing columns
+          for (const colNum of headerColumns) {
+            const cell = row.getCell(colNum);
+            const headerName = headerMap[colNum];
+            let cellVal = '';
+            if (cell && cell.value != null) {
+              if (cell.text !== undefined && cell.text !== null && String(cell.text).trim() !== '' && String(cell.text) !== '[object Object]') {
+                cellVal = String(cell.text).trim();
+              } else if (typeof cell.value === 'object') {
+                if (cell.value.result != null) cellVal = String(cell.value.result).trim();
+                else if (cell.value.text != null) cellVal = String(cell.value.text).trim();
+                else if (Array.isArray(cell.value.richText)) cellVal = cell.value.richText.map(r => r.text || '').join('').trim();
+                else cellVal = String(cell.value).trim();
+              } else {
+                cellVal = String(cell.value).trim();
+              }
+            }
+            obj[headerName] = cellVal;
+          }
           contacts.push(obj);
         });
       }
@@ -337,7 +396,7 @@ router.post(
 
         // Extract Mobile
         const mobileMatch = findValue(row,
-          ['mobile', 'mobile_number', 'mobile_no', 'mobileno', 'mobilenum', 'mob_num', 'mob_no', 'phone', 'phone_number', 'phone_no', 'phoneno', 'phonenum', 'number', 'contact', 'contact_no', 'contact_num', 'contactno', 'contactnum', 'mob', 'cell', 'whatsapp', 'whatsapp_no', 'mob_num', 'mob_num'],
+          ['mobile', 'mobile_number', 'mobile_no', 'mobileno', 'mobilenum', 'mob_num', 'mob_no', 'phone', 'phone_number', 'phone_no', 'phoneno', 'phonenum', 'number', 'contact', 'contact_no', 'contact_num', 'contactno', 'contactnum', 'mob', 'cell', 'whatsapp', 'whatsapp_no'],
           /mob|phone|contact|number|num|tel/i
         );
         row['mobile'] = (mobileMatch.val === '\\N') ? '' : String(mobileMatch.val).trim();
@@ -376,7 +435,7 @@ router.post(
 
         // Extract Pincode
         const pinMatch = findValue(row,
-          ['pincode', 'pin', 'zip', 'zipcode', 'postal_code', 'postalcode', 'pin_code', 'pincode_no'],
+          ['pincode', 'pin', 'zip', 'zipcode', 'postal_code', 'postalcode', 'pin_code', 'pincode_no', 'pin_no', 'pincod'],
           /pin|zip/i
         );
         row['pincode'] = (pinMatch.val === '\\N') ? '' : String(pinMatch.val).trim();
@@ -386,7 +445,7 @@ router.post(
 
         // Extract City
         const cityMatch = findValue(row,
-          ['city', 'city_name', 'district', 'dist', 'pob', 'town'],
+          ['city', 'city_name', 'district', 'dist', 'pob', 'town', 'cty', 'c_city'],
           /city|dist/i
         );
         row['city'] = (cityMatch.val === '\\N') ? '' : String(cityMatch.val).trim();
@@ -396,7 +455,7 @@ router.post(
 
         // Extract State
         const stateMatch = findValue(row,
-          ['state', 'state_name', 'region'],
+          ['state', 'state_name', 'region', 'st', 's_state'],
           /state|region/i
         );
         row['state'] = (stateMatch.val === '\\N') ? '' : String(stateMatch.val).trim();
@@ -412,6 +471,49 @@ router.post(
         row['village'] = (villageMatch.val === '\\N') ? '' : String(villageMatch.val).trim();
         if (villageMatch.matchedKey && villageMatch.matchedKey !== 'village') {
           matchedKeysToClean.push(villageMatch.matchedKey);
+        }
+
+        // Smart fallback: If pincode, city, or state are empty, extract them from address text
+        if (row['address']) {
+          if (!row['pincode']) {
+            const pinRegexMatch = row['address'].match(/\b([1-9][0-9]{5})\b/);
+            if (pinRegexMatch) {
+              row['pincode'] = pinRegexMatch[1];
+            }
+          }
+
+          if (!row['state']) {
+            const indianStates = [
+              'Maharashtra', 'Gujarat', 'Karnataka', 'Delhi', 'Tamil Nadu', 'Uttar Pradesh',
+              'Rajasthan', 'Madhya Pradesh', 'West Bengal', 'Telangana', 'Andhra Pradesh',
+              'Punjab', 'Haryana', 'Kerala', 'Bihar', 'Jharkhand', 'Assam', 'Odisha',
+              'Chhattisgarh', 'Uttarakhand', 'Himachal Pradesh', 'Goa'
+            ];
+            for (const st of indianStates) {
+              if (new RegExp(`\\b${st}\\b`, 'i').test(row['address'])) {
+                row['state'] = st;
+                break;
+              }
+            }
+          }
+
+          if (!row['city']) {
+            const commonCities = [
+              'Pune', 'Mumbai', 'Nagpur', 'Nashik', 'Thane', 'Delhi', 'Bangalore', 'Bengaluru',
+              'Hyderabad', 'Ahmedabad', 'Kolkata', 'Chennai', 'Surat', 'Jaipur', 'Lucknow',
+              'Kanpur', 'Indore', 'Bhopal', 'Patna', 'Vadodara', 'Ludhiana', 'Agra',
+              'Rajkot', 'Varanasi', 'Aurangabad', 'Solapur', 'Amravati', 'Kolhapur',
+              'Sangli', 'Satara', 'Nanded', 'Jalgaon', 'Akola', 'Latur', 'Dhule',
+              'Ahmednagar', 'Chandrapur', 'Parbhani', 'Ichalkaranji', 'Jalna', 'Bhusawal',
+              'Panvel', 'Bhiwandi', 'Navi Mumbai'
+            ];
+            for (const ct of commonCities) {
+              if (new RegExp(`\\b${ct}\\b`, 'i').test(row['address'])) {
+                row['city'] = ct;
+                break;
+              }
+            }
+          }
         }
 
         // Extract Email
@@ -443,12 +545,12 @@ router.post(
           row['gender'] = 'male'; // default fallback
         }
 
-        // Also clean up any general known synonyms if they exist to keep dynamic schema clean
+        // Also clean up any general known synonyms and serial number columns if they exist
         const synonyms = [
           'full_name', 'fullname', 'cname', 'fname', 'first_name', 'contact_name', 'legal_name', 'company_name', 'business_name', 'firm_name', 'customer_name', 'client_name', 'owner_name',
           'phone', 'contact', 'mobile_number', 'number', 'mob', 'cell', 'contact_no', 'phone_number', 'mob_num', 'mob_no', 'whatsapp', 'whatsapp_no',
           'ladd', 'local_address', 'full_address', 'addr', 'location_address',
-          'pin', 'zip', 'zipcode', 'postal_code', 'postalcode', 'pin_code', 'pincode_no',
+          'pin', 'zip', 'zipcode', 'postal_code', 'postalcode', 'pin_code', 'pincode_no', 'pin_no',
           'city_name', 'district', 'dist', 'pob',
           'state_name', 'region',
           'location', 'area', 'town', 'village_name',
@@ -459,7 +561,14 @@ router.post(
           matchedKeysToClean.push(key);
         }
 
-        // Delete synonym keys from row object
+        for (const key of Object.keys(row)) {
+          const kClean = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (['srno', 'sno', 'slno', 'seq', 'seqno', 'serialno', 'sr'].includes(kClean) || kClean.includes('srno')) {
+            matchedKeysToClean.push(key);
+          }
+        }
+
+        // Delete synonym & serial number keys from row object
         for (const key of matchedKeysToClean) {
           delete row[key];
         }
@@ -510,12 +619,12 @@ router.post(
         }
       }
 
-      // Ensure that 'name' and 'mobile' exist in the dynamic inserts mapping
-      if (!activeInsertCols.some(c => c.dbName === 'name') && existingCols.has('name')) {
-        activeInsertCols.push({ original: 'name', dbName: 'name' });
-      }
-      if (!activeInsertCols.some(c => c.dbName === 'mobile') && existingCols.has('mobile')) {
-        activeInsertCols.push({ original: 'mobile', dbName: 'mobile' });
+      // Ensure all standard DB columns are always present in activeInsertCols
+      const stdDbCols = ['name', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'gender', 'notes'];
+      for (const stdCol of stdDbCols) {
+        if (!activeInsertCols.some(c => c.dbName === stdCol) && existingCols.has(stdCol)) {
+          activeInsertCols.push({ original: stdCol, dbName: stdCol });
+        }
       }
 
       // 5. Bulk insert chunk loop

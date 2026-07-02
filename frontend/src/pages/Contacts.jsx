@@ -40,6 +40,7 @@ export default function Contacts() {
   const [stateFilter, setStateFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [deleteId, setDeleteId] = useState(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [columns, setColumns] = useState([]);
   const { canDelete, canManageUsers } = useAuth();
   const navigate = useNavigate();
@@ -69,10 +70,13 @@ export default function Contacts() {
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
   const customCols = columns.filter(col => {
+    const colClean = col.toLowerCase().replace(/[^a-z0-9]/g, '');
     const stdCols = new Set([
-      'id', 'name', 'gender', 'mobile', 'city', 'state', 'village', 'pincode', 'email', 'notes',
-      'created_by', 'created_at', 'updated_at', 'created_by_name'
+      'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
+      'created_by', 'created_at', 'updated_at', 'created_by_name',
+      'srno', 'sno', 'slno', 'seq', 'seqno', 'serialno', 'sr'
     ]);
+    if (stdCols.has(colClean) || colClean.includes('srno')) return false;
     return !stdCols.has(col.toLowerCase());
   });
 
@@ -84,6 +88,23 @@ export default function Contacts() {
       fetchContacts();
     } catch {
       toast.error('Failed to delete contact');
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const toastId = toast.loading('Deleting all contacts...');
+    try {
+      const res = await axios.delete('/contacts/all');
+      if (res.data.success) {
+        toast.success(res.data.message || 'All contacts deleted', { id: toastId });
+        setShowDeleteAllModal(false);
+        setPage(1);
+        fetchContacts();
+      } else {
+        toast.error(res.data.message || 'Failed to delete all contacts', { id: toastId });
+      }
+    } catch {
+      toast.error('Failed to delete all contacts', { id: toastId });
     }
   };
 
@@ -125,10 +146,11 @@ export default function Contacts() {
           </h1>
           <p className="page-subtitle">Manage your contact database</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
           {canManageUsers() && (
-            <label className="btn-secondary cursor-pointer">
-              <ImportIcon size={16} /> Import Excel
+            <label className="btn-secondary cursor-pointer whitespace-nowrap text-xs px-2 sm:px-3.5 py-1.5 sm:py-2 shrink-0">
+              <ImportIcon size={14} />
+              <span>Import<span className="hidden sm:inline"> Excel</span></span>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
@@ -138,12 +160,25 @@ export default function Contacts() {
             </label>
           )}
           {canManageUsers() && (
-            <button onClick={() => navigate('/contacts/new')} className="btn-primary">
-              <PlusIcon size={16} /> Add Contact
+            <button
+              onClick={() => navigate('/contacts/new')}
+              className="btn-primary whitespace-nowrap text-xs px-2 sm:px-3.5 py-1.5 sm:py-2 shrink-0"
+            >
+              <PlusIcon size={14} />
+              <span>Add<span className="hidden sm:inline"> Contact</span></span>
             </button>
           )}
-          <button className="btn-secondary" title="Refresh" onClick={fetchContacts}>
-            <RefreshIcon size={16} />
+          {canDelete() && total > 0 && (
+            <button
+              onClick={() => setShowDeleteAllModal(true)}
+              className="btn-danger whitespace-nowrap text-xs font-semibold px-2 sm:px-3.5 py-1.5 sm:py-2 shrink-0"
+            >
+              <DeleteIcon size={14} />
+              <span>Delete<span className="hidden sm:inline"> All</span></span>
+            </button>
+          )}
+          <button className="btn-secondary whitespace-nowrap px-2 sm:px-3 py-1.5 sm:py-2 shrink-0" title="Refresh" onClick={fetchContacts}>
+            <RefreshIcon size={14} />
           </button>
         </div>
       </div>
@@ -180,13 +215,14 @@ export default function Contacts() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>#</th>
+                <th>SR NO</th>
                 <th>Name</th>
                 <th>Gender</th>
                 <th>Mobile</th>
                 <th>City</th>
                 <th>State</th>
                 <th>PIN Code</th>
+                <th>Address</th>
                 {customCols.map(col => (
                   <th key={col} className="capitalize">{col.replace(/_/g, ' ')}</th>
                 ))}
@@ -198,14 +234,14 @@ export default function Contacts() {
               {loading ? (
                 Array(limit).fill(0).map((_, i) => (
                   <tr key={i}>
-                    {Array(9 + customCols.length).fill(0).map((_, j) => (
+                    {Array(10 + customCols.length).fill(0).map((_, j) => (
                       <td key={j}><div className="skeleton h-4 rounded w-full" /></td>
                     ))}
                   </tr>
                 ))
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={9 + customCols.length} className="text-center py-16 text-muted">
+                  <td colSpan={10 + customCols.length} className="text-center py-16 text-muted">
                     <div className="flex flex-col items-center gap-3">
                       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
                         <circle cx="24" cy="24" r="20" stroke="rgba(99,102,241,0.3)" strokeWidth="2"/>
@@ -246,9 +282,12 @@ export default function Contacts() {
                       <td>
                         {c.pincode ? <span className="badge badge-cyan text-[10px] py-0.5 px-1.5">{c.pincode}</span> : <span className="text-muted text-[10px]">—</span>}
                       </td>
+                      <td className="text-xs max-w-xs truncate" title={c.address}>
+                        {c.address || <span className="text-muted text-[10px]">—</span>}
+                      </td>
                       {customCols.map(col => (
                         <td key={col} className="text-xs">
-                          {c[col] !== undefined && c[col] !== null ? (
+                          {c[col] !== undefined && c[col] !== null && String(c[col]).trim() !== '' ? (
                             String(c[col])
                           ) : (
                             <span className="text-muted text-[10px]">—</span>
@@ -294,6 +333,14 @@ export default function Contacts() {
         onConfirm={handleDelete}
         title="Delete Contact"
         message="Are you sure you want to delete this contact? This action cannot be undone."
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteAllModal}
+        onClose={() => setShowDeleteAllModal(false)}
+        onConfirm={handleDeleteAll}
+        title="Delete All Contacts"
+        message={`Are you sure you want to delete ALL ${total.toLocaleString()} contacts? This action will permanently remove all records and cannot be undone.`}
       />
     </div>
   );

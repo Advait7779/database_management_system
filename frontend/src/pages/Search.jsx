@@ -48,10 +48,13 @@ export default function Search() {
   const [searched, setSearched] = useState(false);
   const [columns, setColumns] = useState([]);
   const customCols = columns.filter(col => {
+    const colClean = col.toLowerCase().replace(/[^a-z0-9]/g, '');
     const stdCols = new Set([
-      'id', 'name', 'gender', 'mobile', 'city', 'state', 'village', 'pincode', 'email', 'notes',
-      'created_by', 'created_at', 'updated_at', 'created_by_name'
+      'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
+      'created_by', 'created_at', 'updated_at', 'created_by_name',
+      'srno', 'sno', 'slno', 'seq', 'seqno', 'serialno', 'sr'
     ]);
+    if (stdCols.has(colClean) || colClean.includes('srno')) return false;
     return !stdCols.has(col.toLowerCase());
   });
   const debouncedQuery = useDebounce(query, 500);
@@ -247,6 +250,7 @@ export default function Search() {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th>SR NO</th>
                   <th>Name</th>
                   <th>Gender</th>
                   <th>Mobile</th>
@@ -254,6 +258,7 @@ export default function Search() {
                   <th>State</th>
                   <th>Village</th>
                   <th>PIN Code</th>
+                  <th>Address</th>
                   {customCols.map(col => (
                     <th key={col} className="capitalize">{col.replace(/_/g, ' ')}</th>
                   ))}
@@ -263,18 +268,19 @@ export default function Search() {
               <tbody>
                 {loading ? Array(5).fill(0).map((_, i) => (
                   <tr key={i}>
-                    {Array(8 + customCols.length).fill(0).map((_, j) => (
+                    {Array(10 + customCols.length).fill(0).map((_, j) => (
                       <td key={j}><div className="skeleton h-4 rounded w-full" /></td>
                     ))}
                   </tr>
                 )) : results.length === 0 ? (
                   <tr>
-                    <td colSpan={8 + customCols.length} className="text-center py-12 text-muted">
+                    <td colSpan={10 + customCols.length} className="text-center py-12 text-muted">
                       No results found
                     </td>
                   </tr>
                 ) : results.map((c, i) => (
                   <tr key={c.id}>
+                    <td className="text-muted text-xs">{(page - 1) * limit + i + 1}</td>
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
@@ -292,9 +298,12 @@ export default function Search() {
                     <td>{c.state || <span className="text-muted text-[10px]">—</span>}</td>
                     <td>{c.village || <span className="text-muted text-[10px]">—</span>}</td>
                     <td>{c.pincode ? <span className="badge badge-cyan text-[10px] py-0.5 px-1.5">{c.pincode}</span> : <span className="text-muted text-[10px]">—</span>}</td>
+                    <td className="text-xs max-w-xs truncate" title={c.address}>
+                      {c.address || <span className="text-muted text-[10px]">—</span>}
+                    </td>
                     {customCols.map(col => (
                       <td key={col} className="text-xs">
-                        {c[col] !== undefined && c[col] !== null ? (
+                        {c[col] !== undefined && c[col] !== null && String(c[col]).trim() !== '' ? (
                           String(c[col])
                         ) : (
                           <span className="text-muted text-[10px]">—</span>
