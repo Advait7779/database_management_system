@@ -235,6 +235,9 @@ async function initDatabase() {
       await client.query(`INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING;`, [k, v]);
     }
 
+    // Remove old admin user if exists
+    await client.query(`DELETE FROM users WHERE username = 'admin'`);
+
     // Create admin user if not exists
     const existing = await client.query(`SELECT id FROM users WHERE username = 'admindb7779@gmail.com'`);
     if (existing.rows.length === 0) {
