@@ -29,6 +29,7 @@ async function migrate() {
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS designation VARCHAR(100) DEFAULT 'User';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_pincode VARCHAR(255);
     `);
     console.log('✓ users table columns updated');
 

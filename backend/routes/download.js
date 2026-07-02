@@ -9,10 +9,21 @@ const { logActivity } = require('../middleware/logger');
 const DOWNLOAD_ROLES = ['super_admin', 'admin', 'download_user'];
 
 // ── Helper: build filter WHERE clause ────────────────────────────────────────
-function buildFilterWhere(filters) {
+function buildFilterWhere(filters, reqUser) {
   const conditions = [];
   const params = [];
   let idx = 1;
+
+  if (reqUser && reqUser.role === 'staff' && reqUser.allowed_pincode) {
+    const pins = reqUser.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
+    if (pins.length === 1) {
+      conditions.push(`pincode = $${idx++}`);
+      params.push(pins[0]);
+    } else if (pins.length > 1) {
+      conditions.push(`pincode = ANY($${idx++})`);
+      params.push(pins);
+    }
+  }
 
   if (filters.gender && ['male', 'female', 'other'].includes(filters.gender)) {
     conditions.push(`gender = $${idx++}`);
@@ -77,7 +88,7 @@ async function logDownload(req, fileType, filters, recordCount) {
 // ── GET /api/download/excel ───────────────────────────────────────────────────
 router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
   try {
-    const { where, params } = buildFilterWhere(req.query);
+    const { where, params } = buildFilterWhere(req.query, req.user);
     const result = await pool.query(
       `SELECT id, name, mobile, address, city, state, village, pincode, email
        FROM contacts ${where}
@@ -169,7 +180,7 @@ router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
 // ── GET /api/download/csv ─────────────────────────────────────────────────────
 router.get('/csv', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
   try {
-    const { where, params } = buildFilterWhere(req.query);
+    const { where, params } = buildFilterWhere(req.query, req.user);
     const result = await pool.query(
       `SELECT id, name, mobile, address, city, state, village, pincode, email
        FROM contacts ${where}

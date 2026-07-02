@@ -15,6 +15,7 @@ const auth = (req, res, next) => {
       id: decoded.id,
       username: decoded.username,
       role: decoded.role,
+      allowed_pincode: decoded.allowed_pincode,
     };
     next();
   } catch (err) {

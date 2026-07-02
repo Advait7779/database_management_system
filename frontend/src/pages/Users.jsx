@@ -15,7 +15,7 @@ const roleOptions = [{ value: 'staff', label: 'Viewer' }];
 
 function UserModal({ user, onClose, onSave }) {
   const isEdit = Boolean(user?.id);
-  const [form, setForm] = useState({ username: '', email: '', full_name: '', password: '', role: 'staff', ...user });
+  const [form, setForm] = useState({ username: '', email: '', full_name: '', password: '', role: 'staff', allowed_pincode: '', ...user });
   const [loading, setLoading] = useState(false);
   const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
   const handleSubmit = async e => {
@@ -50,6 +50,18 @@ function UserModal({ user, onClose, onSave }) {
                 <input name={f.name} type={f.type} value={form[f.name] || ''} onChange={handleChange} className="input-field" required={f.required} />
               </div>
             ))}
+            <div>
+              <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Allowed PIN Code(s)</label>
+              <input
+                name="allowed_pincode"
+                type="text"
+                placeholder="e.g. 412308 or 412308, 411001"
+                value={form.allowed_pincode || ''}
+                onChange={handleChange}
+                className="input-field font-mono"
+              />
+              <p className="text-[11px] text-muted mt-1">If set, this viewer will only see records from this PIN code.</p>
+            </div>
             <div>
               <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Role *</label>
               <CustomSelect
@@ -118,7 +130,9 @@ export default function Users() {
           <h1 className="page-title">User Management</h1>
           <p className="page-subtitle">Manage system users and permissions</p>
         </div>
-        <button onClick={() => setModal('add')} className="btn-primary"><PlusIcon size={16} /> Add User</button>
+        <button onClick={() => setModal('add')} className="btn-primary">
+          <PlusIcon size={16} /> Add User
+        </button>
       </div>
 
       {/* Role cards */}
@@ -135,17 +149,17 @@ export default function Users() {
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
-              <tr><th>User</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
+              <tr><th>User</th><th>Username</th><th>Email</th><th>Allowed PIN Code</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {loading ? Array(5).fill(0).map((_, i) => (
-                <tr key={i}>{Array(7).fill(0).map((_, j) => <td key={j}><div className="skeleton h-4 rounded" /></td>)}</tr>
+                <tr key={i}>{Array(8).fill(0).map((_, j) => <td key={j}><div className="skeleton h-4 rounded" /></td>)}</tr>
               )) : users.map(u => (
                 <tr key={u.id}>
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ background: `linear-gradient(135deg, ${roleColors[u.role]}, ${roleColors[u.role]}80)` }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${roleColors[u.role] || '#6366F1'}, ${roleColors[u.role] || '#6366F1'}80)` }}>
                         {(u.full_name || u.username)[0].toUpperCase()}
                       </div>
                       <span className="font-medium text-primary text-sm">{u.full_name || u.username}</span>
@@ -153,6 +167,13 @@ export default function Users() {
                   </td>
                   <td><span className="font-mono text-sm">{u.username}</span></td>
                   <td className="text-sm">{u.email}</td>
+                  <td>
+                    {u.allowed_pincode ? (
+                      <span className="badge badge-cyan text-xs font-mono">{u.allowed_pincode}</span>
+                    ) : (
+                      <span className="text-muted text-xs">All (No restriction)</span>
+                    )}
+                  </td>
                   <td><span className={`badge ${roleBadge[u.role]}`}>{roleLabel[u.role]}</span></td>
                   <td>
                     <button onClick={() => toggleStatus(u)} disabled={u.id === currentUser?.id}

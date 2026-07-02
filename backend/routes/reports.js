@@ -9,6 +9,32 @@ router.get('/dashboard', auth, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
+    let cWhere = '';
+    let cTodayWhere = 'WHERE DATE(created_at) = $1';
+    let cPinWhere = "WHERE pincode IS NOT NULL AND pincode <> ''";
+    const cParams = [];
+    const cTodayParams = [today];
+    const cPinParams = [];
+
+    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
+      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
+      if (pins.length === 1) {
+        cWhere = 'WHERE pincode = $1';
+        cParams.push(pins[0]);
+        cTodayWhere += ' AND pincode = $2';
+        cTodayParams.push(pins[0]);
+        cPinWhere += ' AND pincode = $1';
+        cPinParams.push(pins[0]);
+      } else if (pins.length > 1) {
+        cWhere = 'WHERE pincode = ANY($1)';
+        cParams.push(pins);
+        cTodayWhere += ' AND pincode = ANY($2)';
+        cTodayParams.push(pins);
+        cPinWhere += ' AND pincode = ANY($1)';
+        cPinParams.push(pins);
+      }
+    }
+
     const [
       totalContacts,
       todayContacts,
@@ -20,14 +46,14 @@ router.get('/dashboard', auth, async (req, res) => {
       totalPincodes,
       recentActivity,
     ] = await Promise.all([
-      pool.query(`SELECT COUNT(*) AS count FROM contacts`),
-      pool.query(`SELECT COUNT(*) AS count FROM contacts WHERE DATE(created_at) = $1`, [today]),
+      pool.query(`SELECT COUNT(*) AS count FROM contacts ${cWhere}`, cParams),
+      pool.query(`SELECT COUNT(*) AS count FROM contacts ${cTodayWhere}`, cTodayParams),
       pool.query(`SELECT COUNT(*) AS count FROM sms_logs WHERE status = 'sent'`),
       pool.query(`SELECT COUNT(*) AS count FROM whatsapp_logs WHERE status = 'sent'`),
       pool.query(`SELECT COUNT(*) AS count FROM voice_logs`),
       pool.query(`SELECT COUNT(*) AS count FROM download_logs`),
       pool.query(`SELECT COUNT(*) AS count FROM users WHERE status = true`),
-      pool.query(`SELECT COUNT(DISTINCT pincode) AS count FROM contacts WHERE pincode IS NOT NULL AND pincode <> ''`),
+      pool.query(`SELECT COUNT(DISTINCT pincode) AS count FROM contacts ${cPinWhere}`, cPinParams),
       pool.query(
         `SELECT al.action, al.description, al.created_at, u.username, u.full_name
          FROM activity_logs al

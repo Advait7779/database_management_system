@@ -167,6 +167,7 @@ async function initDatabase() {
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS designation VARCHAR(100) DEFAULT 'User';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_pincode VARCHAR(255);
     `);
 
     await client.query(`
@@ -239,10 +240,7 @@ async function initDatabase() {
       await client.query(`INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING;`, [k, v]);
     }
 
-    // Remove old admin user if exists
-    await client.query(`DELETE FROM users WHERE username = 'admin'`);
-
-    // Create admin user if not exists
+    // Ensure default super_admin (admindb7779@gmail.com) exists
     const existing = await client.query(`SELECT id FROM users WHERE username = 'admindb7779@gmail.com'`);
     if (existing.rows.length === 0) {
       const hashedPassword = await bcrypt.hash('Admin@7779', 12);
@@ -250,9 +248,21 @@ async function initDatabase() {
         `INSERT INTO users (username, email, password, full_name, role) VALUES ($1, $2, $3, $4, $5)`,
         ['admindb7779@gmail.com', 'admindb7779@gmail.com', hashedPassword, 'Super Administrator', 'super_admin']
       );
-      console.log('✅ Default admin created (username: admindb7779@gmail.com)');
+      console.log('✅ Default super_admin created (username: admindb7779@gmail.com)');
+    }
+
+    // Ensure 'admin' user exists with password Admin@7779
+    const existingAdmin = await client.query(`SELECT id FROM users WHERE username = 'admin'`);
+    const adminHashedPw = await bcrypt.hash('Admin@7779', 12);
+    if (existingAdmin.rows.length === 0) {
+      await client.query(
+        `INSERT INTO users (username, email, password, full_name, role) VALUES ($1, $2, $3, $4, $5)`,
+        ['admin', 'admin@webdatabase.com', adminHashedPw, 'Administrator', 'admin']
+      );
+      console.log('✅ Default admin user created (username: admin / password: Admin@7779)');
     } else {
-      console.log('✅ Admin user already exists');
+      await client.query(`UPDATE users SET password = $1, status = true WHERE username = 'admin'`, [adminHashedPw]);
+      console.log('✅ Default admin user password synced (username: admin / password: Admin@7779)');
     }
 
     client.release();

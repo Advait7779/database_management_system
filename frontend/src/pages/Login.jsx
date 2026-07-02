@@ -10,6 +10,10 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isLight, setIsLight] = useState(() => {
+    const saved = localStorage.getItem('wdb_theme') || 'light';
+    return saved !== 'dark';
+  });
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -17,8 +21,10 @@ export default function Login() {
     const saved = localStorage.getItem('wdb_theme') || 'light';
     if (saved === 'dark') {
       document.body.classList.remove('light');
+      setIsLight(false);
     } else {
       document.body.classList.add('light');
+      setIsLight(true);
     }
   }, []);
 
@@ -45,16 +51,22 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #060B18 0%, #0D1526 50%, #060B18 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden transition-colors duration-300"
+      style={{
+        background: isLight
+          ? 'linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 50%, #F8FAFC 100%)'
+          : 'linear-gradient(135deg, #060B18 0%, #0D1526 50%, #060B18 100%)'
+      }}>
       {/* Glow orbs */}
-      <div className="glow-orb w-96 h-96 -top-20 -left-20" style={{ background: '#6366F1', opacity: 0.12 }} />
-      <div className="glow-orb w-80 h-80 bottom-0 right-0" style={{ background: '#8B5CF6', opacity: 0.1 }} />
-      <div className="glow-orb w-64 h-64 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ background: '#22D3EE', opacity: 0.06 }} />
+      <div className="glow-orb w-96 h-96 -top-20 -left-20" style={{ background: '#6366F1', opacity: isLight ? 0.18 : 0.12 }} />
+      <div className="glow-orb w-80 h-80 bottom-0 right-0" style={{ background: '#8B5CF6', opacity: isLight ? 0.15 : 0.1 }} />
+      <div className="glow-orb w-64 h-64 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ background: '#22D3EE', opacity: isLight ? 0.1 : 0.06 }} />
 
       {/* Animated grid lines */}
-      <div className="absolute inset-0 opacity-5" style={{
-        backgroundImage: 'linear-gradient(rgba(99,102,241,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.5) 1px, transparent 1px)',
+      <div className="absolute inset-0 opacity-10" style={{
+        backgroundImage: isLight
+          ? 'linear-gradient(rgba(99,102,241,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.2) 1px, transparent 1px)'
+          : 'linear-gradient(rgba(99,102,241,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.5) 1px, transparent 1px)',
         backgroundSize: '40px 40px'
       }} />
 

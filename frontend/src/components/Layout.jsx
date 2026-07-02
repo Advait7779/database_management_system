@@ -14,7 +14,7 @@ import {
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: DashboardIcon, color: '#3B82F6', roles: ['super_admin','admin','staff','download_user','api_user'] },
   { path: '/contacts', label: 'Contacts', icon: ContactsIcon, color: '#8B5CF6', roles: ['super_admin','admin','staff','download_user','api_user'] },
-  { path: '/search', label: 'Smart Search', icon: SearchIcon, color: '#06B6D4', roles: ['super_admin','admin','staff','download_user','api_user'] },
+  { path: '/search', label: 'Smart Search', icon: SearchIcon, color: '#06B6D4', roles: ['super_admin','admin','download_user','api_user'] },
   { path: '/downloads', label: 'Downloads', icon: DownloadIcon, color: '#10B981', roles: ['super_admin','admin','download_user'] },
   { path: '/comms', label: 'Communications', icon: CommsIcon, color: '#EC4899', roles: ['super_admin','admin','api_user'] },
   { path: '/users', label: 'User Management', icon: UsersIcon, color: '#F59E0B', roles: ['super_admin','admin'] },
@@ -25,7 +25,7 @@ const navItems = [
 const roleBadgeMap = {
   super_admin: { label: 'Super Admin', className: 'badge badge-violet' },
   admin: { label: 'Admin', className: 'badge badge-indigo' },
-  staff: { label: 'Staff', className: 'badge badge-cyan' },
+  staff: { label: 'Viewer', className: 'badge badge-cyan' },
   download_user: { label: 'Download User', className: 'badge badge-amber' },
   api_user: { label: 'API User', className: 'badge badge-emerald' },
 };

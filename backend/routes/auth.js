@@ -36,7 +36,7 @@ router.post('/login', async (req, res) => {
     await pool.query(`UPDATE users SET last_login = NOW() WHERE id = $1`, [user.id]);
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, allowed_pincode: user.allowed_pincode },
       process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
@@ -58,6 +58,7 @@ router.post('/login', async (req, res) => {
           role: user.role,
           phone: user.phone,
           designation: user.designation,
+          allowed_pincode: user.allowed_pincode,
           last_login: user.last_login,
         },
       },
@@ -82,7 +83,7 @@ router.post('/logout', auth, async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, username, email, full_name, role, status, last_login, created_at, phone, designation
+      `SELECT id, username, email, full_name, role, status, last_login, created_at, phone, designation, allowed_pincode
        FROM users WHERE id = $1`,
       [req.user.id]
     );

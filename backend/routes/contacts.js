@@ -101,6 +101,17 @@ router.get('/', auth, async (req, res) => {
     const params = [];
     let idx = 1;
 
+    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
+      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
+      if (pins.length === 1) {
+        conditions.push(`c.pincode = $${idx++}`);
+        params.push(pins[0]);
+      } else if (pins.length > 1) {
+        conditions.push(`c.pincode = ANY($${idx++})`);
+        params.push(pins);
+      }
+    }
+
     if (q) {
       conditions.push(`(c.name ILIKE $${idx} OR c.mobile ILIKE $${idx} OR c.city ILIKE $${idx} OR c.state ILIKE $${idx} OR c.pincode ILIKE $${idx} OR c.village ILIKE $${idx} OR c.email ILIKE $${idx})`);
       params.push(`%${q}%`);

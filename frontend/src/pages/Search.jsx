@@ -58,9 +58,16 @@ export default function Search() {
     return !stdCols.has(col.toLowerCase());
   });
   const debouncedQuery = useDebounce(query, 500);
-  const { canDownload, canManageUsers } = useAuth();
+  const { canDownload, canManageUsers, user } = useAuth();
   const navigate = useNavigate();
   const limit = 50;
+
+  useEffect(() => {
+    if (user?.role === 'staff') {
+      toast.error('Smart Search is not available for Viewer accounts');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const doSearch = useCallback(async (q, tab, p = 1, g = gender) => {
     if (!q.trim() && !g && tab !== 'PIN Code') return;

@@ -49,7 +49,7 @@ router.get('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
     const total = parseInt(countResult.rows[0].count);
 
     const result = await pool.query(
-      `SELECT id, username, email, full_name, role, status, last_login, created_at
+      `SELECT id, username, email, full_name, role, status, allowed_pincode, last_login, created_at
        FROM users
        ORDER BY created_at DESC
        LIMIT $1 OFFSET $2`,
@@ -71,7 +71,7 @@ router.get('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
 router.get('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, username, email, full_name, role, status, last_login, created_at
+      `SELECT id, username, email, full_name, role, status, allowed_pincode, last_login, created_at
        FROM users WHERE id = $1`,
       [req.params.id]
     );
@@ -90,7 +90,7 @@ router.get('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
 // ── POST /api/users ───────────────────────────────────────────────────────────
 router.post('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
   try {
-    const { username, email, password, full_name, role } = req.body;
+    const { username, email, password, full_name, role, allowed_pincode } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ success: false, message: 'username, email and password are required' });
@@ -109,10 +109,10 @@ router.post('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const result = await pool.query(
-      `INSERT INTO users (username, email, password, full_name, role)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, username, email, full_name, role, status, created_at`,
-      [username, email, hashedPassword, full_name || null, role || 'staff']
+      `INSERT INTO users (username, email, password, full_name, role, allowed_pincode)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, username, email, full_name, role, status, allowed_pincode, created_at`,
+      [username, email, hashedPassword, full_name || null, role || 'staff', allowed_pincode || null]
     );
 
     await logActivity(req, 'CREATE_USER', `Created user "${username}" with role "${role || 'staff'}"`);
@@ -130,7 +130,7 @@ router.post('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
 // ── PUT /api/users/:id ────────────────────────────────────────────────────────
 router.put('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
   try {
-    const { full_name, email, role, status } = req.body;
+    const { full_name, email, role, status, allowed_pincode } = req.body;
     const targetId = parseInt(req.params.id);
 
     const existing = await pool.query(`SELECT * FROM users WHERE id = $1`, [targetId]);
@@ -146,16 +146,19 @@ router.put('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only super_admin can modify admin accounts' });
     }
 
+    const pincodeVal = allowed_pincode !== undefined ? (allowed_pincode || null) : existing.rows[0].allowed_pincode;
+
     const result = await pool.query(
       `UPDATE users
        SET full_name = COALESCE($1, full_name),
            email     = COALESCE($2, email),
            role      = COALESCE($3, role),
            status    = COALESCE($4, status),
+           allowed_pincode = $5,
            updated_at = NOW()
-       WHERE id = $5
-       RETURNING id, username, email, full_name, role, status, updated_at`,
-      [full_name, email, role, status, targetId]
+       WHERE id = $6
+       RETURNING id, username, email, full_name, role, status, allowed_pincode, updated_at`,
+      [full_name, email, role, status, pincodeVal, targetId]
     );
 
     await logActivity(req, 'UPDATE_USER', `Updated user id=${targetId}`);
@@ -185,6 +188,14 @@ router.delete('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
       return res.status(403).json({ success: false, message: 'Cannot delete a super_admin account' });
     }
 
+    // Nullify references in dependent tables before deleting user to prevent foreign key errors
+    await pool.query(`UPDATE contacts SET created_by = NULL WHERE created_by = $1`, [targetId]);
+    await pool.query(`UPDATE activity_logs SET user_id = NULL WHERE user_id = $1`, [targetId]);
+    await pool.query(`UPDATE download_logs SET user_id = NULL WHERE user_id = $1`, [targetId]);
+    await pool.query(`UPDATE sms_logs SET created_by = NULL WHERE created_by = $1`, [targetId]).catch(() => {});
+    await pool.query(`UPDATE whatsapp_logs SET created_by = NULL WHERE created_by = $1`, [targetId]).catch(() => {});
+    await pool.query(`UPDATE voice_logs SET created_by = NULL WHERE created_by = $1`, [targetId]).catch(() => {});
+
     await pool.query(`DELETE FROM users WHERE id = $1`, [targetId]);
 
     await logActivity(req, 'DELETE_USER', `Deleted user "${existing.rows[0].username}" (id=${targetId})`);
@@ -192,7 +203,7 @@ router.delete('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
     return res.json({ success: true, message: 'User deleted' });
   } catch (err) {
     console.error('Delete user error:', err);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
   }
 });
 
