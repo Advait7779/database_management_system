@@ -12,7 +12,7 @@
 
     # Proxy all /api/* requests to the backend service
     handle /api/* {
-        reverse_proxy {$BACKEND_URL:db-backend:3001} {
+        reverse_proxy {$BACKEND_URL:db-backend:5001} {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
         }
