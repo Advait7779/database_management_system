@@ -1,8 +1,5 @@
 [phases.setup]
-aptPkgs = ["caddy"]
+nixPkgs = ["nodejs_22"]
 
 [phases.build]
 cmd = "npm run build"
-
-[start]
-cmd = "caddy run --config Caddyfile --adapter caddyfile"
