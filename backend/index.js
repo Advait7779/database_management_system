@@ -39,6 +39,10 @@ app.use(
       if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
         return callback(null, true);
       }
+      // Allow direct IP address origins (e.g. http://91.108.111.107 or http://91.108.111.107:5001)
+      if (/^https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
       // Allow any explicitly configured origin
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
