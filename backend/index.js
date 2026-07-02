@@ -236,14 +236,14 @@ async function initDatabase() {
     }
 
     // Create admin user if not exists
-    const existing = await client.query(`SELECT id FROM users WHERE username = 'admin'`);
+    const existing = await client.query(`SELECT id FROM users WHERE username = 'admindb7779@gmail.com'`);
     if (existing.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash('Admin@123', 12);
+      const hashedPassword = await bcrypt.hash('Admin@7779', 12);
       await client.query(
         `INSERT INTO users (username, email, password, full_name, role) VALUES ($1, $2, $3, $4, $5)`,
-        ['admin', 'admin@webdb.com', hashedPassword, 'Super Administrator', 'super_admin']
+        ['admindb7779@gmail.com', 'admindb7779@gmail.com', hashedPassword, 'Super Administrator', 'super_admin']
       );
-      console.log('✅ Default admin created (username: admin / password: Admin@123)');
+      console.log('✅ Default admin created (username: admindb7779@gmail.com)');
     } else {
       console.log('✅ Admin user already exists');
     }

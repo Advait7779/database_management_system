@@ -5,15 +5,15 @@ async function seed() {
   console.log('🌱 Starting database seeding (clean/roles-only)...');
   try {
     // 1. Get or create a super_admin user
-    let userRes = await pool.query("SELECT id FROM users WHERE username = 'admin' LIMIT 1");
+    let userRes = await pool.query("SELECT id FROM users WHERE username = 'admindb7779@gmail.com' LIMIT 1");
     let userId;
     if (userRes.rows.length > 0) {
       userId = userRes.rows[0].id;
     } else {
-      const hashedPw = await bcrypt.hash('Admin@123', 10);
+      const hashedPw = await bcrypt.hash('Admin@7779', 10);
       const newUser = await pool.query(
         "INSERT INTO users (username, email, password, role, full_name) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-        ['admin', 'admin@webdb.com', hashedPw, 'super_admin', 'Super Administrator']
+        ['admindb7779@gmail.com', 'admindb7779@gmail.com', hashedPw, 'super_admin', 'Super Administrator']
       );
       userId = newUser.rows[0].id;
       console.log('✓ Default super_admin created');
