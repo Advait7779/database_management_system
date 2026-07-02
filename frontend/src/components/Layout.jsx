@@ -60,11 +60,11 @@ export default function Layout({ children }) {
   }, []);
 
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('wdb_theme') || 'dark';
-    if (saved === 'light') {
-      document.body.classList.add('light');
-    } else {
+    const saved = localStorage.getItem('wdb_theme') || 'light';
+    if (saved === 'dark') {
       document.body.classList.remove('light');
+    } else {
+      document.body.classList.add('light');
     }
     return saved;
   });

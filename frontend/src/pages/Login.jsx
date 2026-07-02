@@ -14,8 +14,12 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Ensure login page is always in dark mode
-    document.body.classList.remove('light');
+    const saved = localStorage.getItem('wdb_theme') || 'light';
+    if (saved === 'dark') {
+      document.body.classList.remove('light');
+    } else {
+      document.body.classList.add('light');
+    }
   }, []);
 
   const handleSubmit = async (e) => {
