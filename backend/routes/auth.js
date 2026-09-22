@@ -15,10 +15,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username and password are required' });
     }
 
-    // Accept login by username OR email
+    // Accept login by username OR email (case-insensitive and trimmed)
+    const cleanUsername = username.trim().toLowerCase();
     const result = await pool.query(
-      `SELECT * FROM users WHERE (username = $1 OR email = $1) AND status = true`,
-      [username]
+      `SELECT * FROM users WHERE (LOWER(username) = $1 OR LOWER(email) = $1) AND status = true`,
+      [cleanUsername]
     );
 
     if (result.rows.length === 0) {
@@ -65,7 +66,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error('Login error:', err);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
   }
 });
 

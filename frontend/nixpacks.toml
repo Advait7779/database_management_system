@@ -3,3 +3,6 @@ nixPkgs = ["nodejs_22"]
 
 [phases.build]
 cmd = "npm run build"
+
+[start]
+cmd = "npx --yes serve -s dist -l ${PORT:-80}"

@@ -87,44 +87,63 @@ router.get('/dashboard', auth, async (req, res) => {
 // Aggregated contacts by state, city, and pincode for chart data
 router.get('/contact-stats', auth, async (req, res) => {
   try {
+    let pinClause = '';
+    const pinParams = [];
+    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
+      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
+      if (pins.length === 1) {
+        pinClause = 'AND pincode = $1';
+        pinParams.push(pins[0]);
+      } else if (pins.length > 1) {
+        pinClause = 'AND pincode = ANY($1)';
+        pinParams.push(pins);
+      }
+    }
+
     const [byState, byCity, byPincode, monthly, byGender] = await Promise.all([
       pool.query(
         `SELECT state, COUNT(*) AS count
          FROM contacts
-         WHERE state IS NOT NULL AND state <> ''
+         WHERE state IS NOT NULL AND state <> '' ${pinClause}
          GROUP BY state
          ORDER BY count DESC
-         LIMIT 20`
+         LIMIT 20`,
+        pinParams
       ),
       pool.query(
         `SELECT city, state, COUNT(*) AS count
          FROM contacts
-         WHERE city IS NOT NULL AND city <> ''
+         WHERE city IS NOT NULL AND city <> '' ${pinClause}
          GROUP BY city, state
          ORDER BY count DESC
-         LIMIT 20`
+         LIMIT 20`,
+        pinParams
       ),
       pool.query(
         `SELECT pincode, COUNT(*) AS count
          FROM contacts
-         WHERE pincode IS NOT NULL AND pincode <> ''
+         WHERE pincode IS NOT NULL AND pincode <> '' ${pinClause}
          GROUP BY pincode
          ORDER BY count DESC
-         LIMIT 20`
+         LIMIT 20`,
+        pinParams
       ),
       pool.query(
         `SELECT
            TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
            COUNT(*) AS count
          FROM contacts
-         WHERE created_at >= NOW() - INTERVAL '12 months'
+         WHERE created_at >= NOW() - INTERVAL '12 months' ${pinClause}
          GROUP BY month
-         ORDER BY month`
+         ORDER BY month`,
+        pinParams
       ),
       pool.query(
         `SELECT gender, COUNT(*) AS count
          FROM contacts
-         GROUP BY gender`
+         WHERE 1=1 ${pinClause}
+         GROUP BY gender`,
+        pinParams
       ),
     ]);
 

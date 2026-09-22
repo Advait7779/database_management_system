@@ -63,11 +63,10 @@ export default function Search() {
   const limit = 50;
 
   useEffect(() => {
-    if (user?.role === 'staff') {
-      toast.error('Smart Search is not available for Viewer accounts');
-      navigate('/dashboard', { replace: true });
+    if (activeTab === 'PIN Code' && user?.role === 'staff' && user?.allowed_pincode && !pinInput) {
+      setPinInput(user.allowed_pincode.split(',')[0].trim());
     }
-  }, [user, navigate]);
+  }, [activeTab, user, pinInput]);
 
   const doSearch = useCallback(async (q, tab, p = 1, g = gender) => {
     if (!q.trim() && !g && tab !== 'PIN Code') return;
@@ -105,6 +104,12 @@ export default function Search() {
 
   const handlePinSearch = async () => {
     if (!pinInput.trim()) return toast.error('Enter a PIN code');
+    if (user?.role === 'staff' && user?.allowed_pincode) {
+      const allowedPins = user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
+      if (!allowedPins.includes(pinInput.trim())) {
+        return toast.error(`Your account is restricted to PIN: ${user.allowed_pincode}`);
+      }
+    }
     setPinLoading(true);
     setSearched(true);
     try {
@@ -113,7 +118,7 @@ export default function Search() {
         setResults(res.data.data.contacts || []);
         setColumns(res.data.data.columns || []);
         setPinSummary(res.data.data.summary || null);
-        setTotal(res.data.data.contacts?.length || 0);
+        setTotal(res.data.data.pagination?.total ?? (res.data.data.contacts?.length || 0));
       }
     } catch { toast.error('PIN code search failed'); }
     finally { setPinLoading(false); }

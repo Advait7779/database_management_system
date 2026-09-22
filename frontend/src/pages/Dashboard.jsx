@@ -51,7 +51,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({});
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { canDownload } = useAuth();
+  const { user, canDownload, canManageUsers } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -80,9 +80,11 @@ export default function Dashboard() {
           <p className="page-subtitle">Welcome back! Here's what's happening today.</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => navigate('/contacts/new')} className="btn-primary">
-            <PlusIcon size={16} /> Add Contact
-          </button>
+          {canManageUsers() && (
+            <button onClick={() => navigate('/contacts/new')} className="btn-primary">
+              <PlusIcon size={16} /> Add Contact
+            </button>
+          )}
           <button onClick={() => navigate('/search')} className="btn-secondary">
             <SearchIcon size={16} /> Search
           </button>
@@ -121,7 +123,7 @@ export default function Dashboard() {
           <h2 className="font-semibold font-display text-primary mb-4 text-base">Quick Actions</h2>
           <div className="space-y-3">
             {[
-              { label: 'Add New Contact', desc: 'Create a contact record', icon: PlusIcon, color: '#6366F1', path: '/contacts/new' },
+              ...(canManageUsers() ? [{ label: 'Add New Contact', desc: 'Create a contact record', icon: PlusIcon, color: '#6366F1', path: '/contacts/new' }] : []),
               { label: 'Smart Search', desc: 'Search by PIN, City, State', icon: SearchIcon, color: '#22D3EE', path: '/search' },
               { label: 'View All Contacts', desc: 'Browse contact database', icon: ContactsIcon, color: '#10B981', path: '/contacts' },
               ...(canDownload() ? [{ label: 'Download Excel', desc: 'Export filtered data', icon: DownloadIcon, color: '#FBBF24', path: '/downloads' }] : []),

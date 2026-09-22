@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5001;
 
 // Trust proxy headers (required behind Caddy/nginx reverse proxy)
 // Fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR from express-rate-limit
@@ -94,20 +94,11 @@ app.get('/api/health', async (req, res) => {
   try {
     const pool = require('./db/pool');
     await pool.query('SELECT 1');
-    const env = {};
-    for (const key in process.env) {
-      if (key.match(/pass|secret|key|token/i)) {
-        env[key] = '[REDACTED]';
-      } else {
-        env[key] = process.env[key];
-      }
-    }
     res.json({
       success: true,
       status: 'ok',
       database: 'connected',
       hostname: require('os').hostname(),
-      env: env,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
@@ -251,18 +242,17 @@ async function initDatabase() {
       console.log('✅ Default super_admin created (username: admindb7779@gmail.com)');
     }
 
-    // Ensure 'admin' user exists with password Admin@7779
+    // Ensure 'admin' user exists
     const existingAdmin = await client.query(`SELECT id FROM users WHERE username = 'admin'`);
-    const adminHashedPw = await bcrypt.hash('Admin@7779', 12);
     if (existingAdmin.rows.length === 0) {
+      const adminHashedPw = await bcrypt.hash('Admin@7779', 12);
       await client.query(
         `INSERT INTO users (username, email, password, full_name, role) VALUES ($1, $2, $3, $4, $5)`,
         ['admin', 'admin@webdatabase.com', adminHashedPw, 'Administrator', 'admin']
       );
       console.log('✅ Default admin user created (username: admin / password: Admin@7779)');
     } else {
-      await client.query(`UPDATE users SET password = $1, status = true WHERE username = 'admin'`, [adminHashedPw]);
-      console.log('✅ Default admin user password synced (username: admin / password: Admin@7779)');
+      console.log('✅ Default admin user already exists');
     }
 
     client.release();

@@ -95,6 +95,8 @@ router.get('/', auth, async (req, res) => {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
     const offset = (page - 1) * limit;
     const q = req.query.q || '';
+    const city = req.query.city || '';
+    const state = req.query.state || '';
     const gender = req.query.gender || '';
 
     const conditions = [];
@@ -115,6 +117,18 @@ router.get('/', auth, async (req, res) => {
     if (q) {
       conditions.push(`(c.name ILIKE $${idx} OR c.mobile ILIKE $${idx} OR c.city ILIKE $${idx} OR c.state ILIKE $${idx} OR c.pincode ILIKE $${idx} OR c.village ILIKE $${idx} OR c.email ILIKE $${idx})`);
       params.push(`%${q}%`);
+      idx++;
+    }
+
+    if (city) {
+      conditions.push(`c.city ILIKE $${idx}`);
+      params.push(`%${city}%`);
+      idx++;
+    }
+
+    if (state) {
+      conditions.push(`c.state ILIKE $${idx}`);
+      params.push(`%${state}%`);
       idx++;
     }
 
@@ -180,7 +194,17 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Contact not found' });
     }
 
-    return res.json({ success: true, data: result.rows[0] });
+    const contact = result.rows[0];
+
+    // Enforce viewer allowed_pincode restriction
+    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
+      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
+      if (contact.pincode && !pins.includes(contact.pincode)) {
+        return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to view contacts from this PIN code' });
+      }
+    }
+
+    return res.json({ success: true, data: contact });
   } catch (err) {
     console.error('Get contact error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });

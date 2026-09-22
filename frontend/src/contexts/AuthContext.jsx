@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
-// Always use /api as base — nginx proxies it to the backend
-const API_BASE = '/api';
+// Use environment variable VITE_API_URL if configured, otherwise default to relative /api
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // Configure axios defaults
 axios.defaults.baseURL = API_BASE;
@@ -41,16 +41,21 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = useCallback(async (username, password) => {
-    const res = await axios.post('/auth/login', { username, password });
-    if (res.data.success) {
-      const { token: tk, user: u } = res.data.data;
-      setToken(tk);
-      setUser(u);
-      localStorage.setItem('wdb_token', tk);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${tk}`;
-      return { success: true };
+    try {
+      const res = await axios.post('/auth/login', { username, password });
+      if (res.data.success) {
+        const { token: tk, user: u } = res.data.data;
+        setToken(tk);
+        setUser(u);
+        localStorage.setItem('wdb_token', tk);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${tk}`;
+        return { success: true };
+      }
+      return { success: false, message: res.data.message };
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Login failed';
+      return { success: false, message };
     }
-    return { success: false, message: res.data.message };
   }, []);
 
   const logout = useCallback(() => {
