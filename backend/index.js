@@ -22,40 +22,16 @@ if (!fs.existsSync(uploadsDir)) {
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(helmet());
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  process.env.FRONTEND_URL,
-  process.env.CORS_ORIGIN,
-].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
-      if (!origin) return callback(null, true);
-      // Allow localhost origins in development
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-        return callback(null, true);
-      }
-      // Allow direct IP address origins (e.g. http://91.108.111.107 or http://91.108.111.107:5001)
-      if (/^https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin)) {
-        return callback(null, true);
-      }
-      // Allow any explicitly configured origin
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      // In production, if FRONTEND_URL is not set, allow all (open) — log a warning
-      if (!process.env.FRONTEND_URL && !process.env.CORS_ORIGIN) {
-        console.warn(`[CORS] No FRONTEND_URL set — allowing origin: ${origin}`);
-        return callback(null, true);
-      }
-      console.warn(`[CORS] Blocked origin: ${origin}`);
-      return callback(new Error('Not allowed by CORS'), false);
+      // Allow all origins dynamically (required for sslip.io, IP, custom domains, and mobile/Postman)
+      callback(null, true);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   })
 );
 app.use(express.json({ limit: '10mb' }));
@@ -267,7 +243,7 @@ initDatabase().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Server running on 0.0.0.0:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`🔒 CORS origins: ${allowedOrigins.join(', ') || '(open)'}`);
+    console.log(`🔒 CORS: enabled (dynamic reflection)`);
     console.log(`📁 Uploads dir:  ${uploadsDir}\n`);
   });
 });
