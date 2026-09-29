@@ -1,8 +1,25 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
-// Use environment variable VITE_API_URL if configured, otherwise default to relative /api
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Determine API base URL:
+// 1. In production, relative '/api' is reverse-proxied by Caddy/Nginx directly to the backend container.
+// 2. If the user loaded the frontend over HTTPS and VITE_API_URL starts with 'http://',
+//    the browser blocks it as "Mixed Content". We automatically fall back to relative '/api'.
+const resolveApiBase = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl || envUrl === '/api') return '/api';
+
+  if (typeof window !== 'undefined') {
+    // If the page is loaded over HTTPS, never allow an insecure http:// API base URL
+    if (window.location.protocol === 'https:' && envUrl.startsWith('http://')) {
+      console.warn('[AuthContext] Insecure HTTP API URL blocked on HTTPS origin. Falling back to relative /api proxy.');
+      return '/api';
+    }
+  }
+  return envUrl;
+};
+
+const API_BASE = resolveApiBase();
 
 // Configure axios defaults
 axios.defaults.baseURL = API_BASE;
