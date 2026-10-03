@@ -8,6 +8,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 const { logActivity } = require('../middleware/logger');
+const { contactForUser } = require('../middleware/contactAccess');
 
 function toTitleCase(str) {
   if (!str) return '';
@@ -103,17 +104,6 @@ router.get('/', auth, async (req, res) => {
     const params = [];
     let idx = 1;
 
-    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
-      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
-      if (pins.length === 1) {
-        conditions.push(`c.pincode = $${idx++}`);
-        params.push(pins[0]);
-      } else if (pins.length > 1) {
-        conditions.push(`c.pincode = ANY($${idx++})`);
-        params.push(pins);
-      }
-    }
-
     if (q) {
       conditions.push(`(c.name ILIKE $${idx} OR c.mobile ILIKE $${idx} OR c.city ILIKE $${idx} OR c.state ILIKE $${idx} OR c.pincode ILIKE $${idx} OR c.village ILIKE $${idx} OR c.email ILIKE $${idx})`);
       params.push(`%${q}%`);
@@ -164,7 +154,7 @@ router.get('/', auth, async (req, res) => {
 
     return res.json({
       success: true,
-      data: result.rows,
+      data: result.rows.map(contact => contactForUser(contact, req.user)),
       columns,
       pagination: {
         total,
@@ -196,15 +186,7 @@ router.get('/:id', auth, async (req, res) => {
 
     const contact = result.rows[0];
 
-    // Enforce viewer allowed_pincode restriction
-    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
-      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
-      if (contact.pincode && !pins.includes(contact.pincode)) {
-        return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to view contacts from this PIN code' });
-      }
-    }
-
-    return res.json({ success: true, data: contact });
+    return res.json({ success: true, data: contactForUser(contact, req.user) });
   } catch (err) {
     console.error('Get contact error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });

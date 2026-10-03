@@ -51,7 +51,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({});
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user, canDownload, canManageUsers } = useAuth();
+  const { canManageUsers } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function Dashboard() {
               ...(canManageUsers() ? [{ label: 'Add New Contact', desc: 'Create a contact record', icon: PlusIcon, color: '#6366F1', path: '/contacts/new' }] : []),
               { label: 'Smart Search', desc: 'Search by PIN, City, State', icon: SearchIcon, color: '#22D3EE', path: '/search' },
               { label: 'View All Contacts', desc: 'Browse contact database', icon: ContactsIcon, color: '#10B981', path: '/contacts' },
-              ...(canDownload() ? [{ label: 'Download Excel', desc: 'Export filtered data', icon: DownloadIcon, color: '#FBBF24', path: '/downloads' }] : []),
+              ...(canManageUsers() ? [{ label: 'Download Excel', desc: 'Export filtered data', icon: DownloadIcon, color: '#FBBF24', path: '/downloads' }] : []),
             ].map((action) => (
               <button key={action.path} onClick={() => navigate(action.path)}
                 className="w-full flex items-center gap-4 p-3 rounded-xl text-left transition-all hover:scale-[1.02]"

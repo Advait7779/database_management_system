@@ -5,7 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useDebounce } from 'use-debounce';
 import { useAuth } from '../contexts/AuthContext';
-import { PlusIcon, ImportIcon, EditIcon, DeleteIcon, SearchIcon, EyeIcon, RefreshIcon } from '../components/Icons';
+import { PlusIcon, ImportIcon, EditIcon, DeleteIcon, SearchIcon, EyeIcon, RefreshIcon, ExcelIcon } from '../components/Icons';
 import ConfirmModal from '../components/ConfirmModal';
 import Pagination from '../components/Pagination';
 import CustomSelect from '../components/CustomSelect';
@@ -22,13 +22,6 @@ const rowVariants = {
   visible: (i) => ({ opacity: 1, x: 0, transition: { delay: i * 0.02, duration: 0.15, ease: 'easeOut' } })
 };
 
-const maskMobile = (mobile) => {
-  if (!mobile) return '—';
-  const str = String(mobile).trim();
-  if (str.length <= 5) return str;
-  return str.slice(0, -5) + 'xxxxx';
-};
-
 export default function Contacts() {
   const [contacts, setContacts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -41,8 +34,9 @@ export default function Contacts() {
   const [genderFilter, setGenderFilter] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
   const [columns, setColumns] = useState([]);
-  const { canDelete, canManageUsers } = useAuth();
+  const { canDelete, canManageUsers, user } = useAuth();
   const navigate = useNavigate();
   const limit = 50;
 
@@ -65,7 +59,7 @@ export default function Contacts() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, cityFilter, stateFilter, genderFilter]);
+  }, [page, debouncedSearch, cityFilter, stateFilter, genderFilter, user?.allow_contact_access]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -135,6 +129,26 @@ export default function Contacts() {
 
   const handleSearch = (e) => { setSearch(e.target.value); setPage(1); };
 
+  const handleDownloadAll = async () => {
+    setDownloadLoading(true);
+    try {
+      const res = await axios.get('/download/excel', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `contacts_${Date.now()}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      toast.success('Contacts downloaded as Excel');
+    } catch (err) {
+      toast.error(err.response?.status === 403 ? 'Download access has been revoked' : 'Failed to download contacts');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -147,6 +161,14 @@ export default function Contacts() {
           <p className="page-subtitle">Manage your contact database</p>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
+          {['staff', 'download_user'].includes(user?.role) && user?.allow_contact_access && (
+            <button onClick={handleDownloadAll} disabled={downloadLoading}
+              className="btn-success whitespace-nowrap text-xs px-2 sm:px-3.5 py-1.5 sm:py-2 shrink-0"
+              title="Download all contacts as Excel">
+              {downloadLoading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ExcelIcon size={14} />}
+              Download Excel
+            </button>
+          )}
           {canManageUsers() && (
             <label className="btn-secondary cursor-pointer whitespace-nowrap text-xs px-2 sm:px-3.5 py-1.5 sm:py-2 shrink-0">
               <ImportIcon size={14} />
@@ -248,9 +270,11 @@ export default function Contacts() {
                         <path d="M24 16v8l5 3" stroke="rgba(99,102,241,0.3)" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
                       <p className="font-medium">No contacts found</p>
-                      <button onClick={() => navigate('/contacts/new')} className="btn-primary mt-2">
-                        <PlusIcon size={14} /> Add First Contact
-                      </button>
+                      {canManageUsers() && (
+                        <button onClick={() => navigate('/contacts/new')} className="btn-primary mt-2">
+                          <PlusIcon size={14} /> Add First Contact
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -276,7 +300,7 @@ export default function Contacts() {
                           {c.gender || 'male'}
                         </span>
                       </td>
-                      <td><span className="font-mono text-xs">{maskMobile(c.mobile)}</span></td>
+                      <td><span className="font-mono text-xs">{c.mobile || '—'}</span></td>
                       <td>{c.city || <span className="text-muted text-[10px]">—</span>}</td>
                       <td>{c.state || <span className="text-muted text-[10px]">—</span>}</td>
                       <td>

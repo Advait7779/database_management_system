@@ -49,7 +49,7 @@ router.get('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
     const total = parseInt(countResult.rows[0].count);
 
     const result = await pool.query(
-      `SELECT id, username, email, full_name, role, status, allowed_pincode, last_login, created_at
+      `SELECT id, username, email, full_name, role, status, allowed_pincode, allow_contact_access, last_login, created_at
        FROM users
        ORDER BY created_at DESC
        LIMIT $1 OFFSET $2`,
@@ -71,7 +71,7 @@ router.get('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
 router.get('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, username, email, full_name, role, status, allowed_pincode, last_login, created_at
+      `SELECT id, username, email, full_name, role, status, allowed_pincode, allow_contact_access, last_login, created_at
        FROM users WHERE id = $1`,
       [req.params.id]
     );
@@ -111,7 +111,7 @@ router.post('/', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
     const result = await pool.query(
       `INSERT INTO users (username, email, password, full_name, role, allowed_pincode)
        VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, username, email, full_name, role, status, allowed_pincode, created_at`,
+       RETURNING id, username, email, full_name, role, status, allowed_pincode, allow_contact_access, created_at`,
       [username, email, hashedPassword, full_name || null, role || 'staff', allowed_pincode || null]
     );
 
@@ -157,7 +157,7 @@ router.put('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
            allowed_pincode = $5,
            updated_at = NOW()
        WHERE id = $6
-       RETURNING id, username, email, full_name, role, status, allowed_pincode, updated_at`,
+       RETURNING id, username, email, full_name, role, status, allowed_pincode, allow_contact_access, updated_at`,
       [full_name, email, role, status, pincodeVal, targetId]
     );
 
@@ -166,6 +166,30 @@ router.put('/:id', auth, roleGuard(ADMIN_ROLES), async (req, res) => {
     return res.json({ success: true, message: 'User updated', data: result.rows[0] });
   } catch (err) {
     console.error('Update user error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ── PATCH /api/users/:id/contact-access ───────────────────────────────────────
+// The main administrator explicitly grants or revokes full numbers and exports.
+router.patch('/:id/contact-access', auth, roleGuard(['super_admin']), async (req, res) => {
+  try {
+    if (typeof req.body.enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'enabled must be a boolean' });
+    }
+    const result = await pool.query(
+      `UPDATE users SET allow_contact_access = $1, updated_at = NOW()
+       WHERE id = $2 AND role IN ('staff', 'download_user')
+       RETURNING id, username, allow_contact_access`,
+      [req.body.enabled, req.params.id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, message: 'Sub-user not found' });
+    }
+    await logActivity(req, 'CONTACT_ACCESS', `${req.body.enabled ? 'Granted' : 'Revoked'} full contact and download access for ${result.rows[0].username}`);
+    return res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('Contact access update error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

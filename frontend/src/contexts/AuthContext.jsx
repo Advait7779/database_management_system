@@ -55,7 +55,22 @@ export const AuthProvider = ({ children }) => {
       }
     };
     loadUser();
-  }, []);
+    let lastRefresh = Date.now();
+    const refreshOnFocus = () => {
+      if (Date.now() - lastRefresh < 60000) return;
+      lastRefresh = Date.now();
+      loadUser();
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    const interval = window.setInterval(() => {
+      lastRefresh = Date.now();
+      loadUser();
+    }, 120000);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      window.clearInterval(interval);
+    };
+  }, [token]);
 
   const login = useCallback(async (username, password) => {
     try {
@@ -89,7 +104,9 @@ export const AuthProvider = ({ children }) => {
     return roles.includes(user.role);
   }, [user]);
 
-  const canDownload = useCallback(() => hasRole(['super_admin','admin','download_user']), [hasRole]);
+  const canDownload = useCallback(() =>
+    hasRole(['super_admin', 'admin']) || Boolean(user?.allow_contact_access && hasRole(['staff', 'download_user'])),
+  [hasRole, user]);
   const canManageUsers = useCallback(() => hasRole(['super_admin','admin']), [hasRole]);
   const canDelete = useCallback(() => hasRole(['super_admin','admin']), [hasRole]);
   const canSendComms = useCallback(() => hasRole(['super_admin','admin','api_user']), [hasRole]);

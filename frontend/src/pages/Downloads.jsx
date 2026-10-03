@@ -16,7 +16,7 @@ const genderOptions = [
 ];
 
 export default function Downloads() {
-  const { user, canDownload } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [filters, setFilters] = useState({ pincode: '', city: '', state: '', name: '', gender: '' });
   const [logs, setLogs] = useState([]);
@@ -29,9 +29,9 @@ export default function Downloads() {
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    if (!canDownload()) { navigate('/dashboard'); return; }
-    fetchLogs(1);
-  }, []);
+    if (!['super_admin', 'admin'].includes(user?.role)) { navigate('/contacts', { replace: true }); return; }
+    if (user?.role !== 'staff') fetchLogs(1);
+  }, [navigate, user?.role]);
 
   const fetchLogs = async (p = 1) => {
     setLoading(true);
@@ -72,16 +72,18 @@ export default function Downloads() {
       window.URL.revokeObjectURL(url);
       toast.success(`${type.toUpperCase()} downloaded!`);
       setPage(1);
-      fetchLogs(1);
+      if (user?.role !== 'staff') fetchLogs(1);
     } catch { toast.error('Download failed'); }
     finally { setDlLoading(''); }
   };
+
+  if (!['super_admin', 'admin'].includes(user?.role)) return null;
 
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">Download Center</h1>
-        <p className="page-subtitle">Export contact data as Excel or CSV</p>
+        <p className="page-subtitle">Export contact data as Excel{['super_admin', 'admin'].includes(user?.role) ? ' or CSV' : ''}</p>
       </div>
 
       {/* Security Notice */}
@@ -145,19 +147,19 @@ export default function Downloads() {
             {dlLoading === 'excel' ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ExcelIcon size={22} />}
             Download Excel (.xlsx)
           </motion.button>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+          {['super_admin', 'admin'].includes(user?.role) && <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             onClick={() => handleDownload('csv')} disabled={!!dlLoading}
             className="w-full py-4 rounded-xl font-semibold text-white flex items-center justify-center gap-3 transition-all"
             style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
             {dlLoading === 'csv' ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <DownloadIcon size={22} />}
             Download CSV (.csv)
-          </motion.button>
+          </motion.button>}
           <p className="text-xs text-muted text-center mt-2">Leave filters empty to download all contacts</p>
         </div>
       </div>
 
       {/* Download History */}
-      <div className="glass-card overflow-hidden">
+      {user?.role !== 'staff' && <div className="glass-card overflow-hidden">
         <div className="px-6 py-4 border-b border-subtle">
           <h2 className="font-semibold font-display text-primary">Download History</h2>
         </div>
@@ -197,7 +199,7 @@ export default function Downloads() {
             />
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

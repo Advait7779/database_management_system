@@ -48,15 +48,19 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Stricter limiter for auth routes
+// Limit failed login attempts without counting session/profile requests.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts, please try again in 15 minutes.' },
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/auth',     authLimiter, require('./routes/auth'));
+app.post('/api/auth/login', authLimiter);
+app.use('/api/auth',     require('./routes/auth'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/search',   require('./routes/search'));
 app.use('/api/download', require('./routes/download'));
@@ -135,6 +139,7 @@ async function initDatabase() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS designation VARCHAR(100) DEFAULT 'User';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_pincode VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS allow_contact_access BOOLEAN NOT NULL DEFAULT false;
     `);
 
     await client.query(`
@@ -249,4 +254,3 @@ initDatabase().then(() => {
 });
 
 module.exports = app;
-

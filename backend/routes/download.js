@@ -5,8 +5,15 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 const { logActivity } = require('../middleware/logger');
+const { hasContactAccess } = require('../middleware/contactAccess');
 
 const DOWNLOAD_ROLES = ['super_admin', 'admin', 'download_user'];
+const requireGrantedAccess = (req, res, next) => {
+  if (!hasContactAccess(req.user)) {
+    return res.status(403).json({ success: false, message: 'Contact download access has not been granted' });
+  }
+  next();
+};
 
 // ── Helper: build filter WHERE clause ────────────────────────────────────────
 function buildFilterWhere(filters, reqUser) {
@@ -14,7 +21,7 @@ function buildFilterWhere(filters, reqUser) {
   const params = [];
   let idx = 1;
 
-  if (reqUser && reqUser.role === 'staff' && reqUser.allowed_pincode) {
+  if (reqUser && reqUser.role === 'staff' && reqUser.allowed_pincode && !reqUser.allow_contact_access) {
     const pins = reqUser.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
     if (pins.length === 1) {
       conditions.push(`pincode = $${idx++}`);
@@ -86,20 +93,21 @@ async function logDownload(req, fileType, filters, recordCount) {
 }
 
 // ── GET /api/download/excel ───────────────────────────────────────────────────
-router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
+router.get('/excel', auth, roleGuard([...DOWNLOAD_ROLES, 'staff']), requireGrantedAccess, async (req, res) => {
   try {
     const { where, params } = buildFilterWhere(req.query, req.user);
-    const result = await pool.query(
-      `SELECT id, name, mobile, address, city, state, village, pincode, email
-       FROM contacts ${where}
-       ORDER BY name`,
-      params
-    );
+    const maxResult = await pool.query('SELECT COALESCE(MAX(id), 0) AS max_id FROM contacts');
+    const maxId = Number(maxResult.rows[0].max_id);
 
-    const contacts = result.rows;
-    await logDownload(req, 'xlsx', req.query, contacts.length);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="contacts_${Date.now()}.xlsx"`);
 
-    const workbook = new ExcelJS.Workbook();
+    // Commit each row as it is written instead of holding the full workbook in memory.
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      stream: res,
+      useStyles: true,
+      useSharedStrings: false,
+    });
     workbook.creator = 'WebDB System';
     workbook.created = new Date();
 
@@ -133,32 +141,52 @@ router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
       };
     });
     headerRow.height = 22;
+    headerRow.commit();
 
-    // Add data rows
-    contacts.forEach((c, i) => {
-      const row = sheet.addRow({
-        id:               c.id,
-        name:             c.name,
-        mobile:           maskMobile(c.mobile),
-        address:          c.address         || '',
-        city:             c.city            || '',
-        state:            c.state           || '',
-        village:          c.village         || '',
-        pincode:          c.pincode         || '',
-        email:            c.email           || '',
-      });
+    const batchSize = 2000;
+    const lastIdParam = params.length + 1;
+    const maxIdParam = params.length + 2;
+    const batchSizeParam = params.length + 3;
+    const pageWhere = `${where ? `${where} AND` : 'WHERE'} id > $${lastIdParam} AND id <= $${maxIdParam}`;
+    let lastId = 0;
+    let recordCount = 0;
 
-      // Alternating row colour
-      if (i % 2 === 1) {
-        row.eachCell((cell) => {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFF0F9FF' }, // very light blue
-          };
+    while (lastId < maxId && !res.destroyed) {
+      const result = await pool.query(
+        `SELECT id, name, mobile, address, city, state, village, pincode, email
+         FROM contacts ${pageWhere}
+         ORDER BY id
+         LIMIT $${batchSizeParam}`,
+        [...params, lastId, maxId, batchSize]
+      );
+      if (result.rows.length === 0) break;
+
+      for (const c of result.rows) {
+        const row = sheet.addRow({
+          id:      c.id,
+          name:    c.name,
+          mobile:  c.mobile,
+          address: c.address || '',
+          city:    c.city || '',
+          state:   c.state || '',
+          village: c.village || '',
+          pincode: c.pincode || '',
+          email:   c.email || '',
         });
+        if (recordCount % 2 === 1) {
+          row.eachCell(cell => {
+            cell.fill = {
+              type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' },
+            };
+          });
+        }
+        row.commit();
+        recordCount++;
       }
-    });
+      lastId = result.rows[result.rows.length - 1].id;
+    }
+
+    if (res.destroyed) return;
 
     // Auto-filter on header row
     sheet.autoFilter = {
@@ -166,19 +194,22 @@ router.get('/excel', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
       to:   { row: 1, column: sheet.columns.length },
     };
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="contacts_${Date.now()}.xlsx"`);
-
-    await workbook.xlsx.write(res);
-    res.end();
+    sheet.commit();
+    await workbook.commit();
+    try {
+      await logDownload(req, 'xlsx', req.query, recordCount);
+    } catch (logError) {
+      console.error('Excel download logging error:', logError);
+    }
   } catch (err) {
     console.error('Excel download error:', err);
+    if (res.headersSent) return res.destroy(err);
     return res.status(500).json({ success: false, message: 'Failed to generate Excel file' });
   }
 });
 
 // ── GET /api/download/csv ─────────────────────────────────────────────────────
-router.get('/csv', auth, roleGuard(DOWNLOAD_ROLES), async (req, res) => {
+router.get('/csv', auth, roleGuard(DOWNLOAD_ROLES), requireGrantedAccess, async (req, res) => {
   try {
     const { where, params } = buildFilterWhere(req.query, req.user);
     const result = await pool.query(

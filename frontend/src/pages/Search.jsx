@@ -17,13 +17,6 @@ const genderOptions = [
   { value: 'other', label: 'Other' },
 ];
 
-const maskMobile = (mobile) => {
-  if (!mobile) return '—';
-  const str = String(mobile).trim();
-  if (str.length <= 5) return str;
-  return str.slice(0, -5) + 'xxxxx';
-};
-
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -63,10 +56,10 @@ export default function Search() {
   const limit = 50;
 
   useEffect(() => {
-    if (activeTab === 'PIN Code' && user?.role === 'staff' && user?.allowed_pincode && !pinInput) {
-      setPinInput(user.allowed_pincode.split(',')[0].trim());
-    }
-  }, [activeTab, user, pinInput]);
+    setResults([]);
+    setPinSummary(null);
+    setSearched(false);
+  }, [user?.allow_contact_access]);
 
   const doSearch = useCallback(async (q, tab, p = 1, g = gender) => {
     if (!q.trim() && !g && tab !== 'PIN Code') return;
@@ -104,12 +97,8 @@ export default function Search() {
 
   const handlePinSearch = async () => {
     if (!pinInput.trim()) return toast.error('Enter a PIN code');
-    if (user?.role === 'staff' && user?.allowed_pincode) {
-      const allowedPins = user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
-      if (!allowedPins.includes(pinInput.trim())) {
-        return toast.error(`Your account is restricted to PIN: ${user.allowed_pincode}`);
-      }
-    }
+    setPinSummary(null);
+    setResults([]);
     setPinLoading(true);
     setSearched(true);
     try {
@@ -144,12 +133,14 @@ export default function Search() {
         params,
         responseType: 'blob'
       });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const url = window.URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
       a.download = pin ? `contacts_pin_${pin}.xlsx` : 'contacts.xlsx';
+      document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      a.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       toast.success('Excel downloaded!');
     } catch { toast.error('Download failed'); }
     finally { setDlLoading(false); }
@@ -181,7 +172,7 @@ export default function Search() {
             <div className="search-bar max-w-md w-full">
               <PinIcon size={20} className="text-cyan-400 flex-shrink-0" />
               <input placeholder="Enter PIN Code (e.g. 560001)" value={pinInput}
-                onChange={e => setPinInput(e.target.value)}
+                onChange={e => { setPinInput(e.target.value); setPinSummary(null); setResults([]); setSearched(false); }}
                 onKeyDown={e => e.key === 'Enter' && handlePinSearch()}
                 className="text-base font-mono" />
             </div>
@@ -236,7 +227,10 @@ export default function Search() {
                 </div>
               )}
               {canDownload() && (
-                <button onClick={() => handleDownload(pinSummary.pincode)} disabled={dlLoading} className="btn-success mx-auto">
+                <button onClick={() => handleDownload(pinSummary.pincode)}
+                  disabled={dlLoading || !pinSummary.total_contacts}
+                  title={pinSummary.total_contacts ? `Download contacts for PIN ${pinSummary.pincode}` : 'No contacts to download for this PIN'}
+                  className="btn-success mx-auto disabled:opacity-50 disabled:cursor-not-allowed">
                   {dlLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><DownloadIcon size={16} /> Download PIN {pinSummary.pincode} Data</>}
                 </button>
               )}
@@ -252,7 +246,7 @@ export default function Search() {
             <span className="text-sm font-semibold text-secondary">
               {loading ? 'Searching...' : `Found ${total.toLocaleString()} contacts`}
             </span>
-            {canDownload() && results.length > 0 && activeTab !== 'PIN Code' && (
+            {canManageUsers() && results.length > 0 && activeTab !== 'PIN Code' && (
               <button onClick={() => handleDownload(null)} disabled={dlLoading} className="btn-success text-xs px-3 py-2">
                 <DownloadIcon size={14} /> Download Results
               </button>
@@ -305,7 +299,7 @@ export default function Search() {
                         {c.gender || 'male'}
                       </span>
                     </td>
-                    <td><span className="font-mono text-xs">{maskMobile(c.mobile)}</span></td>
+                    <td><span className="font-mono text-xs">{c.mobile || '—'}</span></td>
                     <td>{c.city || <span className="text-muted text-[10px]">—</span>}</td>
                     <td>{c.state || <span className="text-muted text-[10px]">—</span>}</td>
                     <td>{c.village || <span className="text-muted text-[10px]">—</span>}</td>

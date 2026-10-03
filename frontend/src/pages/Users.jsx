@@ -51,7 +51,7 @@ function UserModal({ user, onClose, onSave }) {
               </div>
             ))}
             <div>
-              <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Allowed PIN Code(s)</label>
+              <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Dashboard PIN Filter</label>
               <input
                 name="allowed_pincode"
                 type="text"
@@ -60,7 +60,7 @@ function UserModal({ user, onClose, onSave }) {
                 onChange={handleChange}
                 className="input-field font-mono"
               />
-              <p className="text-[11px] text-muted mt-1">If set, this viewer will only see records from this PIN code.</p>
+              <p className="text-[11px] text-muted mt-1">Filters dashboard statistics only. Viewers can browse all contacts.</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Role *</label>
@@ -97,7 +97,7 @@ export default function Users() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('/users');
+      const res = await axios.get('/users', { params: { limit: 100 } });
       if (res.data.success) setUsers(res.data.data || []);
     } catch { toast.error('Failed to load users'); }
     finally { setLoading(false); }
@@ -118,6 +118,18 @@ export default function Users() {
       toast.success(`User ${!u.status ? 'activated' : 'deactivated'}`);
       fetchUsers();
     } catch { toast.error('Failed to update status'); }
+  };
+
+  const toggleContactAccess = async (u) => {
+    try {
+      await axios.patch(`/users/${u.id}/contact-access`, { enabled: !u.allow_contact_access });
+      toast.success(`Full contact access ${u.allow_contact_access ? 'revoked' : 'granted'} for ${u.username}`);
+      setUsers(current => current.map(item => item.id === u.id
+        ? { ...item, allow_contact_access: !u.allow_contact_access }
+        : item));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update contact access');
+    }
   };
 
   const roleCounts = ROLES.reduce((acc, r) => ({ ...acc, [r]: users.filter(u => u.role === r).length }), {});
@@ -149,11 +161,11 @@ export default function Users() {
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
-              <tr><th>User</th><th>Username</th><th>Email</th><th>Allowed PIN Code</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
+              <tr><th>User</th><th>Username</th><th>Email</th><th>Dashboard PIN Filter</th><th>Role</th><th>Status</th><th>Full Contacts & Excel</th><th>Last Login</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {loading ? Array(5).fill(0).map((_, i) => (
-                <tr key={i}>{Array(8).fill(0).map((_, j) => <td key={j}><div className="skeleton h-4 rounded" /></td>)}</tr>
+                <tr key={i}>{Array(9).fill(0).map((_, j) => <td key={j}><div className="skeleton h-4 rounded" /></td>)}</tr>
               )) : users.map(u => (
                 <tr key={u.id}>
                   <td>
@@ -177,9 +189,21 @@ export default function Users() {
                   <td><span className={`badge ${roleBadge[u.role]}`}>{roleLabel[u.role]}</span></td>
                   <td>
                     <button onClick={() => toggleStatus(u)} disabled={u.id === currentUser?.id}
+                      aria-label={`${u.status ? 'Deactivate' : 'Activate'} ${u.username}`}
                       className={`relative inline-flex h-5 w-9 rounded-full transition-colors duration-300 ${u.status ? 'bg-emerald-500' : 'bg-gray-600'} disabled:opacity-50`}>
                       <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-300 mt-0.5 ${u.status ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </button>
+                  </td>
+                  <td>
+                    {['staff', 'download_user'].includes(u.role) ? (
+                      <button onClick={() => toggleContactAccess(u)} disabled={currentUser?.role !== 'super_admin'}
+                        role="switch" aria-checked={Boolean(u.allow_contact_access)}
+                        aria-label={`Full contacts and Excel access for ${u.username}`}
+                        title={u.allow_contact_access ? 'Full numbers and Excel enabled' : 'Full numbers and Excel disabled'}
+                        className={`relative inline-flex h-5 w-9 rounded-full transition-colors duration-300 ${u.allow_contact_access ? 'bg-emerald-500' : 'bg-gray-600'} disabled:opacity-50`}>
+                        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-300 mt-0.5 ${u.allow_contact_access ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                    ) : <span className="text-muted text-xs">{['super_admin', 'admin'].includes(u.role) ? 'Admin access' : '—'}</span>}
                   </td>
                   <td className="text-xs text-muted">{u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
                   <td>

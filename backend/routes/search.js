@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { contactForUser } = require('../middleware/contactAccess');
 
 // Helper to query only columns that contain at least one non-empty value in the database
 async function getActiveColumns(pool) {
@@ -38,22 +39,10 @@ async function getActiveColumns(pool) {
 }
 
 // ── Helper: build dynamic WHERE clause ───────────────────────────────────────
-function buildContactsWhere(filters, reqUser) {
+function buildContactsWhere(filters) {
   const conditions = [];
   const params = [];
   let idx = 1;
-
-  // Enforce viewer allowed_pincode restriction
-  if (reqUser && reqUser.role === 'staff' && reqUser.allowed_pincode) {
-    const pins = reqUser.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
-    if (pins.length === 1) {
-      conditions.push(`pincode = $${idx++}`);
-      params.push(pins[0]);
-    } else if (pins.length > 1) {
-      conditions.push(`pincode = ANY($${idx++})`);
-      params.push(pins);
-    }
-  }
 
   if (filters.gender && ['male', 'female', 'other'].includes(filters.gender)) {
     conditions.push(`gender = $${idx++}`);
@@ -102,7 +91,7 @@ router.get('/', auth, async (req, res) => {
 
     const { where, params, idx } = buildContactsWhere({
       q, name, mobile, address, city, state, village, pincode, email, gender,
-    }, req.user);
+    });
 
     const countResult = await pool.query(
       `SELECT COUNT(*) FROM contacts ${where}`,
@@ -123,7 +112,7 @@ router.get('/', auth, async (req, res) => {
 
     return res.json({
       success: true,
-      data: result.rows,
+      data: result.rows.map(contact => contactForUser(contact, req.user)),
       columns,
       pagination: {
         total,
@@ -144,30 +133,6 @@ router.get('/pincode/:pin', auth, async (req, res) => {
   try {
     const { pin } = req.params;
 
-    // If viewer has restricted allowed_pincode, ensure they can only search their assigned PIN
-    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
-      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
-      if (!pins.includes(pin)) {
-        return res.json({
-          success: true,
-          data: {
-            contacts: [],
-            columns: [],
-            summary: {
-              pincode: pin,
-              total_contacts: 0,
-              cities: [],
-            },
-            pagination: {
-              total: 0,
-              page: 1,
-              limit: 100,
-              totalPages: 0,
-            },
-          },
-        });
-      }
-    }
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
     const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 100));
     const offset = (page - 1) * limit;
@@ -195,7 +160,7 @@ router.get('/pincode/:pin', auth, async (req, res) => {
     return res.json({
       success: true,
       data: {
-        contacts: contactsResult.rows,
+        contacts: contactsResult.rows.map(contact => contactForUser(contact, req.user)),
         columns,
         summary: {
           pincode: pin,
@@ -224,19 +189,6 @@ router.get('/pincode/:pin', auth, async (req, res) => {
 // All pincodes with their contact counts (for summary/map views)
 router.get('/pincode-stats', auth, async (req, res) => {
   try {
-    let pinClause = '';
-    const pinParams = [];
-    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
-      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
-      if (pins.length === 1) {
-        pinClause = 'AND pincode = $1';
-        pinParams.push(pins[0]);
-      } else if (pins.length > 1) {
-        pinClause = 'AND pincode = ANY($1)';
-        pinParams.push(pins);
-      }
-    }
-
     const result = await pool.query(
       `SELECT
          pincode,
@@ -246,10 +198,9 @@ router.get('/pincode-stats', auth, async (req, res) => {
          ARRAY_AGG(DISTINCT city  ORDER BY city)  FILTER (WHERE city  IS NOT NULL) AS cities,
          ARRAY_AGG(DISTINCT state ORDER BY state) FILTER (WHERE state IS NOT NULL) AS states
        FROM contacts
-       WHERE pincode IS NOT NULL AND pincode <> '' ${pinClause}
+       WHERE pincode IS NOT NULL AND pincode <> ''
        GROUP BY pincode
-       ORDER BY total_contacts DESC`,
-      pinParams
+       ORDER BY total_contacts DESC`
     );
 
     return res.json({
@@ -278,29 +229,17 @@ router.get('/suggestions', auth, async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
-    let pinClause = '';
     const params = [`%${q}%`];
-    if (req.user && req.user.role === 'staff' && req.user.allowed_pincode) {
-      const pins = req.user.allowed_pincode.split(',').map(p => p.trim()).filter(Boolean);
-      if (pins.length === 1) {
-        pinClause = 'AND pincode = $2';
-        params.push(pins[0]);
-      } else if (pins.length > 1) {
-        pinClause = 'AND pincode = ANY($2)';
-        params.push(pins);
-      }
-    }
-
     const result = await pool.query(
       `SELECT id, name, mobile, city, state, pincode
        FROM contacts
-       WHERE (name ILIKE $1 OR mobile ILIKE $1) ${pinClause}
+       WHERE (name ILIKE $1 OR mobile ILIKE $1)
        ORDER BY name
        LIMIT 5`,
       params
     );
 
-    return res.json({ success: true, data: result.rows });
+    return res.json({ success: true, data: result.rows.map(contact => contactForUser(contact, req.user)) });
   } catch (err) {
     console.error('Suggestions error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });

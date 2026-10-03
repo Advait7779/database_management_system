@@ -60,6 +60,7 @@ router.post('/login', async (req, res) => {
           phone: user.phone,
           designation: user.designation,
           allowed_pincode: user.allowed_pincode,
+          allow_contact_access: user.allow_contact_access,
           last_login: user.last_login,
         },
       },
@@ -84,7 +85,7 @@ router.post('/logout', auth, async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, username, email, full_name, role, status, last_login, created_at, phone, designation, allowed_pincode
+      `SELECT id, username, email, full_name, role, status, last_login, created_at, phone, designation, allowed_pincode, allow_contact_access
        FROM users WHERE id = $1`,
       [req.user.id]
     );
