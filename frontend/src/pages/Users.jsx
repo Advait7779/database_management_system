@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
-import { PlusIcon, EditIcon, DeleteIcon, UsersIcon, CheckIcon, CloseIcon } from '../components/Icons';
+import { PlusIcon, EditIcon, DeleteIcon, UsersIcon, CheckIcon, CloseIcon, EyeIcon, EyeOffIcon } from '../components/Icons';
 import ConfirmModal from '../components/ConfirmModal';
 import { useNavigate } from 'react-router-dom';
 import CustomSelect from '../components/CustomSelect';
@@ -17,6 +17,7 @@ function UserModal({ user, onClose, onSave }) {
   const isEdit = Boolean(user?.id);
   const [form, setForm] = useState({ username: '', email: '', full_name: '', password: '', role: 'staff', allowed_pincode: '', ...user });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
   const handleSubmit = async e => {
     e.preventDefault();
@@ -39,17 +40,42 @@ function UserModal({ user, onClose, onSave }) {
           className="glass-card p-7 w-full max-w-md relative z-10">
           <h3 className="font-bold font-display text-xl text-primary mb-5">{isEdit ? 'Edit User' : 'Add User'}</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {[
-              { name: 'full_name', label: 'Full Name', type: 'text' },
-              { name: 'username', label: 'Username', type: 'text', required: true },
-              { name: 'email', label: 'Email', type: 'email', required: true },
-              ...(!isEdit ? [{ name: 'password', label: 'Password', type: 'password', required: true }] : []),
-            ].map(f => (
-              <div key={f.name}>
-                <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">{f.label}{f.required && <span className="text-rose-400 ml-1">*</span>}</label>
-                <input name={f.name} type={f.type} value={form[f.name] || ''} onChange={handleChange} className="input-field" required={f.required} />
+            <div>
+              <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Full Name</label>
+              <input name="full_name" type="text" value={form.full_name || ''} onChange={handleChange} className="input-field" placeholder="Enter full name" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Username <span className="text-rose-400 ml-1">*</span></label>
+              <input name="username" type="text" value={form.username || ''} onChange={handleChange} className="input-field" placeholder="Enter username" required />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Email <span className="text-rose-400 ml-1">*</span></label>
+              <input name="email" type="email" value={form.email || ''} onChange={handleChange} className="input-field" placeholder="Enter email" required />
+            </div>
+            {!isEdit && (
+              <div>
+                <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Password <span className="text-rose-400 ml-1">*</span></label>
+                <div className="relative">
+                  <input
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password || ''}
+                    onChange={handleChange}
+                    className="input-field pr-11"
+                    placeholder="Enter password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-secondary transition-colors cursor-pointer"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                  </button>
+                </div>
               </div>
-            ))}
+            )}
             <div>
               <label className="block text-xs font-semibold text-muted mb-2 uppercase tracking-wider">Dashboard PIN Filter</label>
               <input
