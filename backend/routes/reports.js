@@ -35,6 +35,8 @@ router.get('/dashboard', auth, async (req, res) => {
       }
     }
 
+    const isAdmin = req.user && (req.user.role === 'super_admin' || req.user.role === 'admin');
+
     const [
       totalContacts,
       todayContacts,
@@ -54,13 +56,15 @@ router.get('/dashboard', auth, async (req, res) => {
       pool.query(`SELECT COUNT(*) AS count FROM download_logs`),
       pool.query(`SELECT COUNT(*) AS count FROM users WHERE status = true`),
       pool.query(`SELECT COUNT(DISTINCT pincode) AS count FROM contacts ${cPinWhere}`, cPinParams),
-      pool.query(
-        `SELECT al.action, al.description, al.created_at, u.username, u.full_name
-         FROM activity_logs al
-         LEFT JOIN users u ON al.user_id = u.id
-         ORDER BY al.created_at DESC
-         LIMIT 3`
-      ),
+      isAdmin
+        ? pool.query(
+            `SELECT al.action, al.description, al.created_at, u.username, u.full_name
+             FROM activity_logs al
+             LEFT JOIN users u ON al.user_id = u.id
+             ORDER BY al.created_at DESC
+             LIMIT 3`
+          )
+        : Promise.resolve({ rows: [] }),
     ]);
 
     return res.json({

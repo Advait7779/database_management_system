@@ -60,7 +60,11 @@ export default function Dashboard() {
         const res = await axios.get('/reports/dashboard');
         if (res.data.success) {
           setStats(res.data.data || {});
-          setActivity((res.data.data.recent_activity || []).slice(0, 3));
+          if (canManageUsers()) {
+            setActivity((res.data.data.recent_activity || []).slice(0, 3));
+          } else {
+            setActivity([]);
+          }
         }
       } catch (e) {
         console.error('Dashboard fetch error', e);
@@ -69,7 +73,7 @@ export default function Dashboard() {
       }
     };
     fetchDashboard();
-  }, []);
+  }, [canManageUsers]);
 
   return (
     <div>
@@ -116,24 +120,97 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick Actions */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.7 }}
+      {canManageUsers() ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Quick Actions */}
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.7 }}
+            className="glass-card p-6">
+            <h2 className="font-semibold font-display text-primary mb-4 text-base">Quick Actions</h2>
+            <div className="space-y-3">
+              {[
+                { label: 'Add New Contact', desc: 'Create a contact record', icon: PlusIcon, color: '#6366F1', path: '/contacts/new' },
+                { label: 'Smart Search', desc: 'Search by PIN, City, State', icon: SearchIcon, color: '#22D3EE', path: '/search' },
+                { label: 'View All Contacts', desc: 'Browse contact database', icon: ContactsIcon, color: '#10B981', path: '/contacts' },
+                { label: 'Download Excel', desc: 'Export filtered data', icon: DownloadIcon, color: '#FBBF24', path: '/downloads' },
+              ].map((action) => (
+                <button key={action.path} onClick={() => navigate(action.path)}
+                  className="w-full flex items-center gap-4 p-3 rounded-xl text-left transition-all hover:scale-[1.02]"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${action.color}20`, border: `1px solid ${action.color}30` }}>
+                    <action.icon size={18} style={{ color: action.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-primary">{action.label}</p>
+                    <p className="text-xs text-muted">{action.desc}</p>
+                  </div>
+                  <ArrowRightIcon size={16} className="text-muted flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Recent Activity */}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.8 }}
+            className="glass-card p-6 lg:col-span-2">
+            <h2 className="font-semibold font-display text-primary mb-4 text-base">Recent Activity</h2>
+            {loading ? (
+              <div className="space-y-3">
+                {Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="skeleton w-8 h-8 rounded-full" />
+                    <div className="flex-1 space-y-1"><div className="skeleton h-3 w-48 rounded" /><div className="skeleton h-2 w-32 rounded" /></div>
+                  </div>
+                ))}
+              </div>
+            ) : activity.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-muted">
+                <LogsPlaceholder />
+                <p className="text-sm mt-3">No recent activity</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activity.map((log, i) => (
+                  <motion.div key={`${log.id || i}-${i}`} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.9 + i * 0.05 }}
+                    className="flex items-start gap-3 p-3 rounded-xl"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(99,102,241,0.15)' }}>
+                      <span className="text-xs font-bold text-indigo-400">
+                        {(log.username || 'S')[0].toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-primary">{log.username || 'System'}</span>
+                        <span className={`badge ${actionColors[log.action] || 'badge-gray'}`}>{log.action?.replace(/_/g, ' ')}</span>
+                      </div>
+                      <p className="text-xs text-muted mt-0.5 truncate">{log.description}</p>
+                      <p className="text-xs text-muted opacity-60 mt-0.5">{new Date(log.created_at).toLocaleString()}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      ) : (
+        /* Regular User View: Quick Actions full width, NO recent activity */
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
           className="glass-card p-6">
           <h2 className="font-semibold font-display text-primary mb-4 text-base">Quick Actions</h2>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              ...(canManageUsers() ? [{ label: 'Add New Contact', desc: 'Create a contact record', icon: PlusIcon, color: '#6366F1', path: '/contacts/new' }] : []),
               { label: 'Smart Search', desc: 'Search by PIN, City, State', icon: SearchIcon, color: '#22D3EE', path: '/search' },
               { label: 'View All Contacts', desc: 'Browse contact database', icon: ContactsIcon, color: '#10B981', path: '/contacts' },
-              ...(canManageUsers() ? [{ label: 'Download Excel', desc: 'Export filtered data', icon: DownloadIcon, color: '#FBBF24', path: '/downloads' }] : []),
             ].map((action) => (
               <button key={action.path} onClick={() => navigate(action.path)}
-                className="w-full flex items-center gap-4 p-3 rounded-xl text-left transition-all hover:scale-[1.02]"
+                className="flex items-center gap-4 p-4 rounded-xl text-left transition-all hover:scale-[1.01]"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: `${action.color}20`, border: `1px solid ${action.color}30` }}>
-                  <action.icon size={18} style={{ color: action.color }} />
+                  <action.icon size={20} style={{ color: action.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-primary">{action.label}</p>
@@ -144,52 +221,7 @@ export default function Dashboard() {
             ))}
           </div>
         </motion.div>
-
-        {/* Recent Activity */}
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.8 }}
-          className="glass-card p-6 lg:col-span-2">
-          <h2 className="font-semibold font-display text-primary mb-4 text-base">Recent Activity</h2>
-          {loading ? (
-            <div className="space-y-3">
-              {Array(3).fill(0).map((_, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="skeleton w-8 h-8 rounded-full" />
-                  <div className="flex-1 space-y-1"><div className="skeleton h-3 w-48 rounded" /><div className="skeleton h-2 w-32 rounded" /></div>
-                </div>
-              ))}
-            </div>
-          ) : activity.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-muted">
-              <LogsPlaceholder />
-              <p className="text-sm mt-3">No recent activity</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {activity.map((log, i) => (
-                <motion.div key={`${log.id || i}-${i}`} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.9 + i * 0.05 }}
-                  className="flex items-start gap-3 p-3 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(99,102,241,0.15)' }}>
-                    <span className="text-xs font-bold text-indigo-400">
-                      {(log.username || 'S')[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-primary">{log.username || 'System'}</span>
-                      <span className={`badge ${actionColors[log.action] || 'badge-gray'}`}>{log.action?.replace(/_/g, ' ')}</span>
-                    </div>
-                    <p className="text-xs text-muted mt-0.5 truncate">{log.description}</p>
-                    <p className="text-xs text-muted opacity-60 mt-0.5">{new Date(log.created_at).toLocaleString()}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      </div>
+      )}
     </div>
   );
 }

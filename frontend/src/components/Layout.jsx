@@ -37,12 +37,15 @@ export default function Layout({ children }) {
   const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
 
+  const isAdmin = hasRole(['super_admin', 'admin']);
+
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unread, setUnread] = useState(true);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const fetchNotifications = async () => {
+    if (!isAdmin) return;
     try {
       const res = await axios.get('/reports/dashboard');
       if (res.data.success) {
@@ -54,10 +57,11 @@ export default function Layout({ children }) {
   };
 
   useEffect(() => {
+    if (!isAdmin) return;
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAdmin]);
 
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('wdb_theme') || 'light';
@@ -212,75 +216,77 @@ export default function Layout({ children }) {
                 )}
               </button>
 
-              {/* Notification Bell & Dropdown */}
-              <div className="relative">
-                <button 
-                  onClick={() => { setShowNotifications(!showNotifications); setUnread(false); }}
-                  className="p-1.5 rounded-lg text-secondary hover:text-primary transition-all duration-200 hover:scale-110 relative" 
-                  title="Notifications"
-                >
-                  <BellIcon size={20} />
-                  {unread && (
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
-                  )}
-                </button>
+              {/* Notification Bell & Dropdown (Admins only) */}
+              {isAdmin && (
+                <div className="relative">
+                  <button 
+                    onClick={() => { setShowNotifications(!showNotifications); setUnread(false); }}
+                    className="p-1.5 rounded-lg text-secondary hover:text-primary transition-all duration-200 hover:scale-110 relative" 
+                    title="Notifications"
+                  >
+                    <BellIcon size={20} />
+                    {unread && (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+                    )}
+                  </button>
 
-                <AnimatePresence>
-                  {showNotifications && (
-                    <>
-                      {/* Click outside backdrop overlay */}
-                      <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-                      
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-2 w-80 glass-card p-4 z-50 overflow-hidden text-left"
-                        style={{ boxShadow: '0 10px 30px rgba(0,0,0,0.25)', background: 'var(--bg-card)' }}
-                      >
-                        <div className="flex items-center justify-between pb-3 border-b border-subtle mb-3">
-                          <span className="font-bold text-sm text-primary">System Notifications</span>
-                          <button 
-                            onClick={() => { fetchNotifications(); setUnread(false); }}
-                            className="text-xs text-indigo-400 hover:underline"
-                          >
-                            Refresh
-                          </button>
-                        </div>
+                  <AnimatePresence>
+                    {showNotifications && (
+                      <>
+                        {/* Click outside backdrop overlay */}
+                        <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
                         
-                        <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                          {notifications.length === 0 ? (
-                            <div className="text-center py-6 text-muted text-xs">No recent notifications</div>
-                          ) : (
-                            notifications.slice(0, 5).map((n, idx) => (
-                              <div key={idx} className="pb-2 border-b border-subtle last:border-0 text-xs">
-                                <div className="flex justify-between items-start gap-2 mb-1">
-                                  <span className="font-semibold text-primary capitalize">
-                                    {n.action.replace('_', ' ')}
-                                  </span>
-                                  <span className="text-[10px] text-muted whitespace-nowrap">
-                                    {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute right-0 mt-2 w-80 glass-card p-4 z-50 overflow-hidden text-left"
+                          style={{ boxShadow: '0 10px 30px rgba(0,0,0,0.25)', background: 'var(--bg-card)' }}
+                        >
+                          <div className="flex items-center justify-between pb-3 border-b border-subtle mb-3">
+                            <span className="font-bold text-sm text-primary">System Notifications</span>
+                            <button 
+                              onClick={() => { fetchNotifications(); setUnread(false); }}
+                              className="text-xs text-indigo-400 hover:underline"
+                            >
+                              Refresh
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                            {notifications.length === 0 ? (
+                              <div className="text-center py-6 text-muted text-xs">No recent notifications</div>
+                            ) : (
+                              notifications.slice(0, 5).map((n, idx) => (
+                                <div key={idx} className="pb-2 border-b border-subtle last:border-0 text-xs">
+                                  <div className="flex justify-between items-start gap-2 mb-1">
+                                    <span className="font-semibold text-primary capitalize">
+                                      {n.action.replace('_', ' ')}
+                                    </span>
+                                    <span className="text-[10px] text-muted whitespace-nowrap">
+                                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  <p className="text-secondary leading-relaxed">{n.description}</p>
+                                  <span className="text-[10px] text-indigo-400 font-medium">by {n.username}</span>
                                 </div>
-                                <p className="text-secondary leading-relaxed">{n.description}</p>
-                                <span className="text-[10px] text-indigo-400 font-medium">by {n.username}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                        <div className="pt-2 text-center border-t border-subtle mt-2">
-                          <button 
-                            onClick={() => { setShowNotifications(false); navigate('/logs'); }}
-                            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-                          >
-                            View All Activity Logs
-                          </button>
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
+                              ))
+                            )}
+                          </div>
+                          <div className="pt-2 text-center border-t border-subtle mt-2">
+                            <button 
+                              onClick={() => { setShowNotifications(false); navigate('/logs'); }}
+                              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+                            >
+                              View All Activity Logs
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
 
               {/* User Profile Avatar Dropdown */}
               <div className="relative">
