@@ -51,7 +51,8 @@ export default function Dashboard() {
   const [stats, setStats] = useState({});
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { canManageUsers } = useAuth();
+  const { canManageUsers, user } = useAuth();
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function Dashboard() {
         const res = await axios.get('/reports/dashboard');
         if (res.data.success) {
           setStats(res.data.data || {});
-          if (canManageUsers()) {
+          if (isAdmin) {
             setActivity((res.data.data.recent_activity || []).slice(0, 3));
           } else {
             setActivity([]);
@@ -73,7 +74,7 @@ export default function Dashboard() {
       }
     };
     fetchDashboard();
-  }, [canManageUsers]);
+  }, [isAdmin]);
 
   return (
     <div>

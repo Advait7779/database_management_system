@@ -47,9 +47,9 @@ export default function Layout({ children }) {
   const fetchNotifications = async () => {
     if (!isAdmin) return;
     try {
-      const res = await axios.get('/reports/dashboard');
+      const res = await axios.get('/reports/recent-activity');
       if (res.data.success) {
-        setNotifications(res.data.data?.recent_activity || []);
+        setNotifications(res.data.data || []);
       }
     } catch (err) {
       console.error('Failed to fetch notifications', err);

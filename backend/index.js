@@ -244,12 +244,31 @@ async function initDatabase() {
 }
 
 // ── Start Server ──────────────────────────────────────────────────────────────
+// Build the additional pagination indexes after listening. CONCURRENTLY keeps
+// contact reads and writes available while existing databases are indexed.
+async function ensurePerformanceIndexes() {
+  const pool = require('./db/pool');
+  const indexes = [
+    `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_contacts_created_id ON contacts (created_at DESC, id DESC)`,
+    `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_contacts_pincode_name_id ON contacts (pincode, name, id)`,
+    `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_logs_created_id ON activity_logs (created_at DESC, id DESC)`,
+  ];
+  for (const statement of indexes) {
+    try {
+      await pool.query(statement);
+    } catch (err) {
+      console.error('⚠️ Performance index warning:', err.message);
+    }
+  }
+}
+
 initDatabase().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Server running on 0.0.0.0:${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
     console.log(`🔒 CORS: enabled (dynamic reflection)`);
     console.log(`📁 Uploads dir:  ${uploadsDir}\n`);
+    void ensurePerformanceIndexes();
   });
 });
 

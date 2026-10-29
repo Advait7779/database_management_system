@@ -4,6 +4,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const ExcelJS = require('exceljs');
 const pool = require('../db/pool');
+const { invalidateContactColumns } = require('../services/contactColumns');
 
 process.env.JWT_SECRET = 'contact-access-test-secret';
 
@@ -14,8 +15,10 @@ const users = new Map([
 ]);
 const contact = { id: 7, name: 'Test Contact', mobile: '9876543210', pincode: '412308', city: 'Pune', created_at: new Date() };
 const originalQuery = pool.query;
+const observedQueries = [];
 
 pool.query = async (sql, params = []) => {
+  observedQueries.push({ sql, params });
   if (sql.includes('FROM users WHERE id = $1')) {
     const user = users.get(Number(params[0]));
     return { rows: user ? [{ ...user }] : [] };
@@ -30,10 +33,13 @@ pool.query = async (sql, params = []) => {
     return { rows: ['id', 'name', 'mobile', 'pincode', 'city', 'created_at'].map(column_name => ({ column_name })) };
   }
   if (sql.includes('COALESCE(MAX(id), 0)')) return { rows: [{ max_id: contact.id }] };
+  if (sql.includes('FROM activity_logs al')) return { rows: [{ action: 'LOGIN', description: 'Signed in', username: 'owner' }] };
   if (sql.includes('COUNT(*) FROM contacts')) return { rows: [{ count: '1' }] };
+  if (sql.includes('GROUP BY city, state')) return { rows: [{ city: 'Pune', state: 'Maharashtra', count: '1' }] };
   if (sql.includes('FROM contacts')) {
     const pinFilter = sql.match(/\b(?:c\.)?pincode\s*=\s*\$(\d+)/);
     if (pinFilter && params[Number(pinFilter[1]) - 1] !== contact.pincode) return { rows: [] };
+    if (sql.includes('ORDER BY name, id') && params[2] > 0) return { rows: [] };
     const lastIdFilter = sql.match(/\bid\s*>\s*\$(\d+)/);
     if (lastIdFilter && params[Number(lastIdFilter[1]) - 1] >= contact.id) return { rows: [] };
     return { rows: [{ ...contact }] };
@@ -48,6 +54,7 @@ app.use('/api/contacts', require('../routes/contacts'));
 app.use('/api/search', require('../routes/search'));
 app.use('/api/download', require('../routes/download'));
 app.use('/api/users', require('../routes/users'));
+app.use('/api/reports', require('../routes/reports'));
 const server = app.listen(0);
 
 after(() => {
@@ -113,4 +120,41 @@ test('super admin grant and revocation control contact responses and Excel expor
   assert.equal(revoke.status, 200);
   assert.equal((await (await request('/api/contacts', 2)).json()).data[0].mobile, '98765xxxxx');
   assert.equal((await request('/api/download/excel', 2)).status, 403);
+});
+
+test('count preview avoids row and metadata queries; PIN paging stays on the PIN route', async () => {
+  observedQueries.length = 0;
+  const preview = await (await request('/api/search/count?pincode=412308', 1)).json();
+  assert.equal(preview.total, 1);
+  assert.equal(observedQueries.filter(({ sql }) => sql.includes('FROM contacts')).length, 1);
+  assert.equal(observedQueries.some(({ sql }) => sql.includes('information_schema')), false);
+
+  observedQueries.length = 0;
+  const page = await (await request('/api/search/pincode/412308?page=2&limit=1', 2)).json();
+  assert.equal(page.data.pagination.page, 2);
+  assert.equal(page.data.pagination.limit, 1);
+  assert.deepEqual(page.data.contacts, []);
+  assert.ok(observedQueries.some(({ sql, params }) => sql.includes('ORDER BY name, id') &&
+    params[0] === '412308' && params[1] === 1 && params[2] === 1));
+});
+
+test('recent activity endpoint is admin only and queries activity without dashboard aggregates', async () => {
+  assert.equal((await request('/api/reports/recent-activity', 2)).status, 403);
+  observedQueries.length = 0;
+  const response = await (await request('/api/reports/recent-activity', 1)).json();
+  assert.equal(response.data[0].action, 'LOGIN');
+  assert.equal(observedQueries.filter(({ sql }) => sql.includes('FROM activity_logs al')).length, 1);
+  assert.equal(observedQueries.some(({ sql }) => sql.includes('COUNT(*) FROM contacts')), false);
+});
+
+test('contact and smart search share one column metadata lookup until invalidated', async () => {
+  invalidateContactColumns();
+  observedQueries.length = 0;
+  await request('/api/contacts', 1);
+  await request('/api/search?q=Pune', 1);
+  assert.equal(observedQueries.filter(({ sql }) => sql.includes('information_schema.columns')).length, 1);
+
+  invalidateContactColumns();
+  await request('/api/search?q=Pune', 1);
+  assert.equal(observedQueries.filter(({ sql }) => sql.includes('information_schema.columns')).length, 2);
 });

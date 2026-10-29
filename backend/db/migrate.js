@@ -206,6 +206,9 @@ async function migrate() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_state    ON contacts(state);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_village  ON contacts(village);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_mobile   ON contacts(mobile);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_created_id ON contacts (created_at DESC, id DESC);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_contacts_pincode_name_id ON contacts (pincode, name, id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_created_id ON activity_logs (created_at DESC, id DESC);`);
     console.log('✓ indexes ready');
 
     // ── Default Super-Admin ────────────────────────────────────────────────────

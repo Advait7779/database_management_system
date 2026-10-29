@@ -3,40 +3,7 @@ const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { contactForUser } = require('../middleware/contactAccess');
-
-// Helper to query only columns that contain at least one non-empty value in the database
-async function getActiveColumns(pool) {
-  const colsRes = await pool.query(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
-  );
-  const allCols = colsRes.rows.map(r => r.column_name);
-
-  const stdCols = new Set([
-    'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
-    'created_by', 'created_at', 'updated_at'
-  ]);
-
-  const dynamicCols = allCols.filter(col => !stdCols.has(col));
-  if (dynamicCols.length === 0) {
-    return allCols;
-  }
-
-  // Check if each dynamic column has any non-empty value
-  const selectParts = dynamicCols.map(col => 
-    `EXISTS(SELECT 1 FROM contacts WHERE "${col}" IS NOT NULL AND TRIM(CAST("${col}" AS TEXT)) <> '') as "${col}"`
-  );
-  const checkQuery = `SELECT ${selectParts.join(', ')}`;
-  
-  try {
-    const checkRes = await pool.query(checkQuery);
-    const row = checkRes.rows[0];
-    const activeDynamicCols = dynamicCols.filter(col => row[col] === true);
-    return allCols.filter(col => stdCols.has(col) || activeDynamicCols.includes(col));
-  } catch (err) {
-    console.error('Error checking active columns:', err);
-    return allCols;
-  }
-}
+const { getActiveColumns } = require('../services/contactColumns');
 
 // ── Helper: build dynamic WHERE clause ───────────────────────────────────────
 function buildContactsWhere(filters) {
@@ -103,12 +70,12 @@ router.get('/', auth, async (req, res) => {
 
     const result = await pool.query(
       `SELECT * FROM contacts ${where}
-       ORDER BY created_at DESC
+       ORDER BY created_at DESC, id DESC
        LIMIT $${idx} OFFSET $${idx + 1}`,
       dataParams
     );
 
-    const columns = await getActiveColumns(pool);
+    const columns = await getActiveColumns();
 
     return res.json({
       success: true,
@@ -127,6 +94,18 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Count-only preview for the download page. Avoid fetching rows and column metadata.
+router.get('/count', auth, async (req, res) => {
+  try {
+    const { where, params } = buildContactsWhere(req.query);
+    const result = await pool.query(`SELECT COUNT(*) FROM contacts ${where}`, params);
+    return res.json({ success: true, total: parseInt(result.rows[0].count, 10) });
+  } catch (err) {
+    console.error('Search count error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // ── GET /api/search/pincode/:pin ──────────────────────────────────────────────
 // All contacts for a specific pincode + summary
 router.get('/pincode/:pin', auth, async (req, res) => {
@@ -139,7 +118,7 @@ router.get('/pincode/:pin', auth, async (req, res) => {
 
     const [contactsResult, summaryResult, countResult] = await Promise.all([
       pool.query(
-        `SELECT * FROM contacts WHERE pincode = $1 ORDER BY name LIMIT $2 OFFSET $3`,
+        `SELECT * FROM contacts WHERE pincode = $1 ORDER BY name, id LIMIT $2 OFFSET $3`,
         [pin, limit, offset]
       ),
       pool.query(
@@ -155,7 +134,7 @@ router.get('/pincode/:pin', auth, async (req, res) => {
 
     const total = parseInt(countResult.rows[0].count);
 
-    const columns = await getActiveColumns(pool);
+    const columns = await getActiveColumns();
 
     return res.json({
       success: true,

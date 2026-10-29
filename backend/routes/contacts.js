@@ -9,6 +9,7 @@ const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 const { logActivity } = require('../middleware/logger');
 const { contactForUser } = require('../middleware/contactAccess');
+const { getActiveColumns, invalidateContactColumns } = require('../services/contactColumns');
 
 function toTitleCase(str) {
   if (!str) return '';
@@ -47,45 +48,6 @@ function findValue(row, exactKeys, partialRegex) {
     }
   }
   return { val: '', matchedKey: null };
-}
-
-// Helper to query only columns that contain at least one non-empty value in the database
-async function getActiveColumns(pool) {
-  const colsRes = await pool.query(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = 'contacts'`
-  );
-  const allCols = colsRes.rows.map(r => r.column_name);
-
-  const stdCols = new Set([
-    'id', 'name', 'gender', 'mobile', 'address', 'city', 'state', 'village', 'pincode', 'email', 'notes',
-    'created_by', 'created_at', 'updated_at'
-  ]);
-
-  const isSrNoCol = (name) => {
-    const n = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return ['srno', 'sno', 'slno', 'seq', 'seqno', 'serialno', 'sr'].includes(n) || n.includes('srno');
-  };
-
-  const dynamicCols = allCols.filter(col => !stdCols.has(col) && !isSrNoCol(col));
-  if (dynamicCols.length === 0) {
-    return allCols.filter(col => stdCols.has(col));
-  }
-
-  // Check if each dynamic column has any non-empty value
-  const selectParts = dynamicCols.map(col => 
-    `EXISTS(SELECT 1 FROM contacts WHERE "${col}" IS NOT NULL AND TRIM(CAST("${col}" AS TEXT)) <> '') as "${col}"`
-  );
-  const checkQuery = `SELECT ${selectParts.join(', ')}`;
-  
-  try {
-    const checkRes = await pool.query(checkQuery);
-    const row = checkRes.rows[0];
-    const activeDynamicCols = dynamicCols.filter(col => row[col] === true);
-    return allCols.filter(col => stdCols.has(col) || activeDynamicCols.includes(col));
-  } catch (err) {
-    console.error('Error checking active columns:', err);
-    return allCols;
-  }
 }
 
 // ── GET /api/contacts ─────────────────────────────────────────────────────────
@@ -145,12 +107,12 @@ router.get('/', auth, async (req, res) => {
        FROM contacts c
        LEFT JOIN users u ON c.created_by = u.id
        ${whereClause}
-       ORDER BY c.created_at DESC
+       ORDER BY c.created_at DESC, c.id DESC
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       dataParams
     );
 
-    const columns = await getActiveColumns(pool);
+    const columns = await getActiveColumns({ excludeSerial: true });
 
     return res.json({
       success: true,
@@ -274,6 +236,7 @@ const deleteAllHandler = async (req, res) => {
 
     // TRUNCATE is instantaneous for large tables (400k+ rows) compared to row-by-row DELETE
     await pool.query(`TRUNCATE TABLE contacts RESTART IDENTITY CASCADE`);
+    invalidateContactColumns();
 
     await logActivity(req, 'DELETE_ALL_CONTACTS', `Deleted all ${count} contacts from database`);
 
@@ -305,6 +268,7 @@ router.delete('/:id', auth, roleGuard(['super_admin', 'admin']), async (req, res
     }
 
     await pool.query(`DELETE FROM contacts WHERE id = $1`, [contactId]);
+    invalidateContactColumns();
 
     await logActivity(req, 'DELETE_CONTACT', `Deleted contact id=${contactId} "${existing.rows[0].name}"`);
 
@@ -691,6 +655,8 @@ router.post(
         }
       }
 
+      invalidateContactColumns();
+
       fs.unlinkSync(filePath);
 
       await logActivity(
@@ -705,6 +671,7 @@ router.post(
         data: { inserted, skipped, total: contacts.length },
       });
     } catch (err) {
+      invalidateContactColumns();
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       console.error('Import error:', err);
       return res.status(500).json({ success: false, message: `Import failed: ${err.message}` });

@@ -52,8 +52,8 @@ export default function Downloads() {
     try {
       const params = {};
       Object.entries(filters).forEach(([k, v]) => { if (v.trim()) params[k] = v.trim(); });
-      const res = await axios.get('/search', { params: { ...params, limit: 1 } });
-      setPreviewCount(res.data.pagination?.total || 0);
+      const res = await axios.get('/search/count', { params });
+      setPreviewCount(res.data.total || 0);
     } catch { toast.error('Preview failed'); }
     finally { setPreviewLoading(false); }
   };

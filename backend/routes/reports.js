@@ -4,6 +4,23 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const roleGuard = require('../middleware/roleGuard');
 
+const recentActivityQuery = `SELECT al.action, al.description, al.created_at, u.username, u.full_name
+  FROM activity_logs al
+  LEFT JOIN users u ON al.user_id = u.id
+  ORDER BY al.created_at DESC, al.id DESC
+  LIMIT 3`;
+
+// Lightweight notification poll for the admin layout.
+router.get('/recent-activity', auth, roleGuard(['super_admin', 'admin']), async (req, res) => {
+  try {
+    const result = await pool.query(recentActivityQuery);
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('Recent activity error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // ── GET /api/reports/dashboard ────────────────────────────────────────────────
 router.get('/dashboard', auth, async (req, res) => {
   try {
@@ -57,13 +74,7 @@ router.get('/dashboard', auth, async (req, res) => {
       pool.query(`SELECT COUNT(*) AS count FROM users WHERE status = true`),
       pool.query(`SELECT COUNT(DISTINCT pincode) AS count FROM contacts ${cPinWhere}`, cPinParams),
       isAdmin
-        ? pool.query(
-            `SELECT al.action, al.description, al.created_at, u.username, u.full_name
-             FROM activity_logs al
-             LEFT JOIN users u ON al.user_id = u.id
-             ORDER BY al.created_at DESC
-             LIMIT 3`
-          )
+        ? pool.query(recentActivityQuery)
         : Promise.resolve({ rows: [] }),
     ]);
 

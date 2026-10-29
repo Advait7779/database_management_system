@@ -95,15 +95,20 @@ export default function Search() {
     }
   }, [debouncedQuery, activeTab, gender, doSearch]);
 
-  const handlePinSearch = async () => {
+  const handlePinSearch = async (requestedPage = 1) => {
     if (!pinInput.trim()) return toast.error('Enter a PIN code');
-    setPinSummary(null);
-    setResults([]);
+    if (requestedPage === 1) {
+      setPinSummary(null);
+      setResults([]);
+    }
     setPinLoading(true);
     setSearched(true);
     try {
-      const res = await axios.get(`/search/pincode/${pinInput.trim()}`);
+      const res = await axios.get(`/search/pincode/${encodeURIComponent(pinInput.trim())}`, {
+        params: { page: requestedPage, limit },
+      });
       if (res.data.success) {
+        setPage(requestedPage);
         setResults(res.data.data.contacts || []);
         setColumns(res.data.data.columns || []);
         setPinSummary(res.data.data.summary || null);
@@ -176,7 +181,7 @@ export default function Search() {
                 onKeyDown={e => e.key === 'Enter' && handlePinSearch()}
                 className="text-base font-mono" />
             </div>
-            <button onClick={handlePinSearch} disabled={pinLoading} className="btn-primary px-6 w-full sm:w-auto justify-center">
+            <button onClick={() => handlePinSearch(1)} disabled={pinLoading} className="btn-primary px-6 w-full sm:w-auto justify-center">
               {pinLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><SearchIcon size={16} /> Search PIN</>}
             </button>
           </div>
@@ -331,7 +336,10 @@ export default function Search() {
           </div>
           {total > limit && (
             <div className="px-4 py-4 border-t border-subtle">
-              <Pagination page={page} total={total} limit={limit} onPageChange={p => { setPage(p); doSearch(query, activeTab, p); }} />
+              <Pagination page={page} total={total} limit={limit} onPageChange={p => {
+                if (activeTab === 'PIN Code') handlePinSearch(p);
+                else { setPage(p); doSearch(query, activeTab, p); }
+              }} />
             </div>
           )}
         </div>
